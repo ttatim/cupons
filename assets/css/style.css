@@ -808,3 +808,65 @@ h6 { font-size: 1rem; }
 ::-webkit-scrollbar-thumb:hover {
     background: var(--primary-dark);
 }
+
+/* Base UI — Pelando Clone */
+.alert { padding:12px 14px; border-radius: 10px; background:#1a1f2b; border:1px solid #2a3140; color: var(--text); }
+.alert-error { border-color: var(--err); background: rgba(239,68,68,.08); }
+
+
+.grid-produtos { display:grid; grid-template-columns: repeat(4, 1fr); gap: var(--gap); }
+.produto-item { background: var(--card); border:1px solid #1f2430; border-radius: var(--radius); overflow: hidden; display:flex; flex-direction: column; }
+.produto-item .thumb img { width: 100%; aspect-ratio: 4/3; object-fit: cover; }
+.produto-item .info { padding: 12px; display:grid; gap: 6px; }
+.produto-item .titulo { margin: 0; font-size: 16px; }
+.produto-item .loja { color: var(--muted); font-size: 13px; }
+.produto-item .precos { display:flex; gap:8px; align-items: baseline; }
+.produto-item .precos .de { color: var(--muted); text-decoration: line-through; }
+.produto-item .precos .por { font-weight: 800; }
+
+
+.lista-cupons { display:grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap); }
+.cupom-item { background: var(--card); border:1px solid #1f2430; border-radius: var(--radius); padding: 14px; display:grid; gap: 8px; }
+.cupom-item header { display:flex; align-items:center; justify-content:space-between; gap: 8px; }
+.cupom-codigo { margin: 0; font-size: 15px; background: #101522; border:1px dashed #2b3345; padding:6px 8px; border-radius: 8px; }
+.cupom-validade { color: var(--muted); font-size: 12px; }
+.usar-cupom.btn { background: #10171f; color: var(--text); border:1px solid #293243; box-shadow:none; }
+.usar-cupom.btn:hover { background:#1b2433; }
+
+
+/* Forms */
+input[type="text"], input[type="search"], input[type="email"], select { height: 38px; padding: 8px 10px; border-radius: 10px; border:1px solid #2b3445; background:#0f1420; color: var(--text); }
+input::placeholder { color: #6e7687; }
+
+
+/* Oferta */
+.oferta-detalhe { background: var(--card); border:1px solid #1f2430; border-radius: 16px; padding: 18px; }
+.oferta-content { display:grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.oferta .de { color: var(--muted); text-decoration: line-through; }
+
+
+/* Footer */
+.site-footer { border-top: 1px solid #1f2430; color: var(--muted); }
+.site-footer .inner { padding: 20px 0 40px; display:flex; align-items:center; justify-content:space-between; gap: 10px; }
+
+
+/* Utilities */
+.vazio { color: var(--muted); padding: 16px; border:1px dashed #2b3345; border-radius: 12px; text-align:center; }
+
+
+/* Responsive */
+@media (max-width: 1040px) {
+.grid-produtos { grid-template-columns: repeat(3, 1fr); }
+.cards { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 780px) {
+.navbar { flex-wrap: wrap; }
+.nav { width: 100%; overflow: auto; }
+.grid-produtos { grid-template-columns: repeat(2, 1fr); }
+.lista-cupons { grid-template-columns: 1fr 1fr; }
+.oferta-content { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+.grid-produtos { grid-template-columns: 1fr; }
+.lista-cupons { grid-template-columns: 1fr; }
+}
