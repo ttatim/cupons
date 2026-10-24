@@ -24,6 +24,7 @@ $commissionStageCounts = null;
 $commissionReviewBreakdown = null;
 $commissionObservationBreakdown = null;
 $commissionRetentionInventory = null;
+$commissionIntegrityInventory = null;
 $commissionStageProgress = null;
 $commissionStageEnabled = trim((string) getenv('HOTMART_ACCOUNT_UCODE')) !== ''
     && strlen((string) getenv('HOTMART_COMMISSION_HASH_KEY')) >= 32;
@@ -80,6 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $commissionReviewBreakdown = HotmartCommissionStaging::reviewBreakdown($pdo, $account, $hashKey);
             $commissionObservationBreakdown = HotmartCommissionStaging::observationBreakdown($pdo, $account, $hashKey);
             $commissionRetentionInventory = HotmartCommissionStaging::retentionInventory($pdo, $account, $hashKey);
+            $commissionIntegrityInventory = HotmartCommissionStaging::integrityInventory($pdo, $account, $hashKey);
         } elseif ($action === 'hotmart_commissions_stage' || $action === 'hotmart_commissions_stage_next') {
             $roleStmt = $pdo->prepare('SELECT nivel FROM usuarios WHERE id = :id AND ativo = 1');
             $roleStmt->execute([':id' => (int) ($_SESSION['user_id'] ?? 0)]);
@@ -114,6 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $commissionReviewBreakdown = HotmartCommissionStaging::reviewBreakdown($pdo, $account, $hashKey);
             $commissionObservationBreakdown = HotmartCommissionStaging::observationBreakdown($pdo, $account, $hashKey);
             $commissionRetentionInventory = HotmartCommissionStaging::retentionInventory($pdo, $account, $hashKey);
+            $commissionIntegrityInventory = HotmartCommissionStaging::integrityInventory($pdo, $account, $hashKey);
         } elseif ($action === 'kiwify_products') {
             $kiwifyPage = AffiliateImportPage::parse($_POST['kiwify_page'] ?? null);
             $kiwifyProducts = (new KiwifyIntegration())->listProducts($kiwifyPage, 10);
@@ -360,6 +363,19 @@ function hAffiliate(string $value): string
                                 <td><?= (int) $commissionRetentionInventory['older_30_days'] ?></td>
                                 <td><?= (int) $commissionRetentionInventory['older_90_days'] ?></td>
                                 <td><?= (int) $commissionRetentionInventory['older_365_days'] ?></td>
+                            </tr></tbody>
+                        </table></div>
+                    <?php endif; ?>
+                    <?php if ($commissionIntegrityInventory !== null): ?>
+                        <h4 class="h6 mt-3">Diagnóstico de integridade local (somente leitura)</h4>
+                        <p class="small text-muted">Contagens de inconsistências entre staging e histórico da conta configurada. Não comprova titularidade, liquidação ou conciliação; zero inconsistências não confirma completude dos dados na Hotmart. Nenhum registro é alterado.</p>
+                        <div class="table-responsive"><table class="table table-sm">
+                            <thead><tr><th>Grupos sem histórico</th><th>Observações sem grupo</th><th>Alertas sem histórico de risco</th><th>Risco histórico sem alerta</th></tr></thead>
+                            <tbody><tr>
+                                <td><?= (int) $commissionIntegrityInventory['staged_without_history'] ?></td>
+                                <td><?= (int) $commissionIntegrityInventory['orphan_observations'] ?></td>
+                                <td><?= (int) $commissionIntegrityInventory['flagged_without_risk_history'] ?></td>
+                                <td><?= (int) $commissionIntegrityInventory['unflagged_with_risk_history'] ?></td>
                             </tr></tbody>
                         </table></div>
                     <?php endif; ?>
