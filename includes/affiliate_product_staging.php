@@ -109,7 +109,7 @@ final class AffiliateProductStaging
         if ($limit < 1 || $limit > 50) {
             throw new InvalidArgumentException('Limite de listagem inválido.');
         }
-        $statement = $pdo->prepare('SELECT external_id, name, status, currency, updated_at
+        $statement = $pdo->prepare('SELECT external_id, name, status, currency, updated_at, review_description, review_price, review_original_price, review_checkout_url, review_image_url, review_store_id
             FROM affiliate_product_staging WHERE provider = :provider AND account_hash = :account_hash
             ORDER BY updated_at DESC, external_id ASC LIMIT ' . $limit);
         $statement->execute([':provider' => 'kiwify', ':account_hash' => $accountHash]);
