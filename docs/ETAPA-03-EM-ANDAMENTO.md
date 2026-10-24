@@ -211,3 +211,10 @@
 - **Nenhum valor, saldo, hash, comprador, código de transação ou segredo é apresentado**; nenhuma tabela é alterada. Não há exportação contábil, pagamento, reconhecimento de receita, resolução automática de alerta nem nova migração.
 - Teste: `php tests/test_hotmart_commission_staging.php` (a pré-verificação é testada sem banco, e os testes de persistência existentes usam apenas `cupons_test`). PHP 8.3/8.4 na matriz existente.
 - **Próximos bloqueios:** credenciais reais autorizadas, validação independente de titularidade, confirmação de semântica e ordem dos eventos Hotmart, abrangência de períodos/páginas, política de retenção e isolamento por vendedor (item 10). O diagnóstico local não remove esses bloqueios.
+
+## Complemento: preparação segura de eventos Monetizze (24/10/2026)
+
+- Adicionada prévia local de eventos de webhook, com validação de formato, deduplicação por `id` dentro do lote, filtro por `chave_unica` e contagens de risco/revisão sem dados pessoais.
+- **Não é um receptor HTTP e não autentica notificações**; nenhum evento é persistido, nenhuma operação financeira é autorizada e nenhum dado real é necessário.
+- Teste isolado `php tests/test_monetizze_webhook_review.php` integrado ao CI PHP 8.3/8.4.
+- Detalhes e bloqueios: [ETAPA-03-MONETIZZE-WEBHOOK-PREPARACAO.md](ETAPA-03-MONETIZZE-WEBHOOK-PREPARACAO.md).
