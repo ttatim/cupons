@@ -6,6 +6,9 @@
 - Diagnóstico sem segredos via `php scripts/check_runtime.php` (código de saída 0 em ambiente válido e 1 em ambiente incompatível).
 - Testes unitários da validação de versão/extensões, incluindo PHP 8.3, 8.4 e erros esperados.
 - Correção das consultas de metadados do banco em `Database::getDatabaseInfo()`: placeholders agora são executados por `PDO::prepare()`, não por `PDO::query()`.
+- Recuperação de páginas legadas com erros de sintaxe e referências a colunas antigas: `oferta.php`, `ajax/produto.php` e `ajax/cupom.php`. Os CTAs usam `go.php` para contabilizar cliques.
+- Recuperação do endpoint `ajax/upload.php` com autenticação, CSRF, limite de 5 MiB e verificação real de MIME/imagem.
+- Teste de instalação limpa ampliado para a página de oferta e listagens AJAX de produtos e cupons.
 - Pipeline de CI em matriz PHP 8.3 e PHP 8.4, MySQL 8.0, análise sintática de **todos** os arquivos PHP, testes do importador, instalação limpa e criação de administrador de teste.
 
 ## Requisitos do servidor
