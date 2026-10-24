@@ -43,6 +43,23 @@ final class AffiliateProductPublication
         ];
     }
 
+    /** @return array<string,int> Mapeia somente publicações da conta configurada. */
+    public static function publicationMap(PDO $pdo, string $accountId): array
+    {
+        if (!preg_match('/\\A[a-zA-Z0-9_-]{3,128}\\z/D', $accountId)) {
+            throw new InvalidArgumentException('Conta Kiwify inválida.');
+        }
+        $statement = $pdo->prepare("SELECT external_id, published_product_id
+            FROM affiliate_product_staging WHERE provider = 'kiwify' AND account_hash = :hash
+            AND published_product_id IS NOT NULL ORDER BY id DESC LIMIT 50");
+        $statement->execute([':hash' => hash('sha256', $accountId)]);
+        $result = [];
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $result[(string) $row['external_id']] = (int) $row['published_product_id'];
+        }
+        return $result;
+    }
+
     public static function publishKiwify(PDO $pdo, string $accountId, string $externalId): int
     {
         if (!preg_match('/\A[a-zA-Z0-9_-]{3,128}\z/D', $accountId)
