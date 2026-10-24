@@ -43,3 +43,14 @@
 
 ## Status do item 3
 **Parcial**. Hotmart e Kiwify têm consultas somente leitura implementadas e testadas com mocks; Monetizze, sincronização e validação com credenciais reais continuam pendentes.
+
+## Complemento da etapa: Monetizze — verificação de chave (24/10/2026)
+- Implementado `includes/monetizze_integration.php` para **verificar autenticação**, não para importar vendas, produtos ou comissões.
+- Gere uma chave em **Monetizze > Ferramentas > API** e configure `MONETIZZE_CONSUMER_KEY` em variável de ambiente fora do webroot. Não inclua a chave em arquivos versionados.
+- O painel apresenta **Verificar chave Monetizze** somente quando a variável está presente. A verificação chama `GET https://api.monetizze.com.br/2.1/token` com o cabeçalho `X_CONSUMER_KEY`, valida a resposta e **descarta** o TOKEN retornado.
+- A implementação não faz consultas de vendas, não persiste dados, não configura webhooks e não comprova autorização para outras operações. **O item 3 continua parcial.**
+- HTTPS/TLS obrigatório, sem redirects, limite de 1 MiB, timeout de 15 s, bloqueio de CRLF na chave e erros sem dados sensíveis.
+- Testes simulados: `php tests/test_monetizze_integration.php`; execução adicionada à matriz PHP 8.3/8.4.
+- A autenticação real depende de chave válida e acesso de rede; não foi testada com credenciais reais.
+- Documentação oficial da API: https://help.monetizze.com.br/books/integracoes/page/api-monetizze e https://api.monetizze.com.br/2.1/apidoc/ .
+- A consulta de produtos/comissões depende da confirmação de endpoints e formatos atuais da API 2.1 e da política de autorização do fornecedor. Não inferir essas rotas nem tratar verificação de chave como sincronização concluída.
