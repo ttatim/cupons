@@ -33,7 +33,7 @@ $expected = [
     'financial_ready' => false, 'authenticated' => false,
 ];
 foreach ($expected as $field => $value) {
-    verifyMonetizzeReview(array_key_exists($field, $summary) && $summary[$field] === $value, 'campo agregado ' . $field);
+    verifyMonetizzeReview(array_key_exists($field, $summary) && $summary[$field] === $value, 'campo agregado ' . $field . ': esperado ' . var_export($value, true) . ', recebido ' . var_export($summary[$field] ?? null, true));
 }
 verifyMonetizzeReview(count($summary) === count($expected), 'nenhum campo adicional');
 verifyMonetizzeReview(!str_contains(json_encode($summary), 'DADO-PESSOAL'), 'sem dados pessoais');
