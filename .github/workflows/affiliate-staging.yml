@@ -18,6 +18,8 @@ on:
       - 'includes/hotmart_commission_staging.php'
       - 'sql/updates/20261024_hotmart_commission_staging.sql'
       - 'tests/test_hotmart_commission_staging.php'
+      - 'includes/hotmart_commission_stage_pagination.php'
+      - 'tests/test_hotmart_commission_stage_pagination.php'
       - '.github/workflows/affiliate-staging.yml'
   push:
     branches: [main]
@@ -37,6 +39,8 @@ on:
       - 'includes/hotmart_commission_staging.php'
       - 'sql/updates/20261024_hotmart_commission_staging.sql'
       - 'tests/test_hotmart_commission_staging.php'
+      - 'includes/hotmart_commission_stage_pagination.php'
+      - 'tests/test_hotmart_commission_stage_pagination.php'
       - '.github/workflows/affiliate-staging.yml'
 
 jobs:
@@ -81,8 +85,12 @@ jobs:
           php -l tests/test_affiliate_import_page.php
           php -l includes/hotmart_commission_staging.php
           php -l tests/test_hotmart_commission_staging.php
+          php -l includes/hotmart_commission_stage_pagination.php
+          php -l tests/test_hotmart_commission_stage_pagination.php
       - name: Validate manual pagination
-        run: php tests/test_affiliate_import_page.php
+        run: |
+          php tests/test_affiliate_import_page.php
+          php tests/test_hotmart_commission_stage_pagination.php
       - name: MySQL staging integration tests
         env:
           TEST_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=cupons_test;charset=utf8mb4'

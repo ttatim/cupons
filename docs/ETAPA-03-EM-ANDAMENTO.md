@@ -144,3 +144,14 @@
 - O isolamento é por conta configurada no ambiente, **não por vendedor autenticado**. Não usar múltiplos vendedores neste estágio; autorização multi-tenant permanece para o item 10. Uma mesma transação em contas distintas terá hash de conta diferente.
 - Testes locais sem banco: `php tests/test_hotmart_commission_staging.php`; com `TEST_DB_DSN` contendo obrigatoriamente `dbname=cupons_test`, os testes verificam MySQL, idempotência, isolamento e marcação de estorno. CI em PHP 8.3 e 8.4 com MySQL 8.
 - **Pendências:** homologação com credenciais reais, revisão da retenção de dados, conciliação efetiva por status/tempo, múltiplas páginas e períodos, confirmação de titularidade, webhook assinado, acesso por vendedor e tratamento monetário de reembolsos. Não usar estes registros para contabilidade.
+
+## Complemento: paginação manual das observações Hotmart (24/10/2026)
+
+- O administrador pode iniciar a consulta de um status e, após gravar com sucesso cada página, usar **Registrar observações da próxima página**. São no máximo **10 transações por ação** e **50 páginas por sequência**, sem processamento automático em segundo plano.
+- O cursor opaco de paginação é armazenado **exclusivamente na sessão PHP**; não aparece no formulário, HTML, URL do navegador ou banco. O status da sequência seguinte também é recuperado da sessão, nunca de campos manipuláveis pelo usuário.
+- A sessão de paginação é vinculada ao HMAC da conta configurada por `HOTMART_ACCOUNT_UCODE` e `HOTMART_COMMISSION_HASH_KEY`. Se a conta ou chave mudar, a continuação anterior é rejeitada. Para trocar de status, inicie nova consulta.
+- O cursor da próxima página só é atualizado **após** a persistência transacional bem-sucedida; falhas de API ou banco permitem repetir a mesma página sem duplicar grupos. Cursores repetidos/cíclicos interrompem a sequência, e o limite de 50 páginas evita consultas indefinidas.
+- A consulta usa sempre `transaction_status` explícito; `APPROVED`, `COMPLETE`, `REFUNDED`, `CHARGEBACK` e `PARTIALLY_REFUNDED` são sequências separadas. Os totais continuam sendo **observações para revisão**, sem saldo, liquidação ou cálculo de estorno.
+- Não foi necessário alterar o esquema nesta subetapa. Para instalar do zero, aplique a migração `sql/updates/20261024_hotmart_commission_staging.sql` após o schema base, conforme instruções anteriores. A migração cria tabela vazia, sem dados reais.
+- Teste: `php tests/test_hotmart_commission_stage_pagination.php` (PHP 8.3/8.4 no CI), incluindo escopo de conta, status, cursor manipulado, repetição e limite. Os testes de staging MySQL existentes permanecem ativos.
+- **Pendências:** homologação com credenciais reais, conciliação de estornos/reembolsos, comprovação de titularidade da conta, isolamento por vendedor (item 10), política de retenção e confirmação da semântica dos status junto à Hotmart. Não utilizar como extrato contábil.
