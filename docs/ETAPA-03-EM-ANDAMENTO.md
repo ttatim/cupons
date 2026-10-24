@@ -65,3 +65,13 @@
 - Testes de normalização: `php tests/test_affiliate_product_staging.php`. Testes reais de persistência exigem `TEST_DB_DSN` apontando explicitamente para `dbname=cupons_test`, `TEST_DB_USER` e `TEST_DB_PASSWORD`. O workflow `affiliate-staging.yml` provisiona MySQL 8 e PHP 8.3/8.4 para essa validação.
 - Sem credenciais reais da Kiwify, não é possível homologar a leitura da API em produção. Não configurar credenciais de vendedores distintos neste ambiente até o item 10 (segregação multiusuário).
 - Esta implementação não executa cron nem importa todo o catálogo: limite de 10 produtos por ação manual, com paginação e publicação automatizadas ainda pendentes.
+
+## Complemento: paginação manual Kiwify e revisão persistida (24/10/2026)
+
+- O painel **Integração > Afiliados** aceita número de página entre 1 e 1000 para consultar ou importar produtos Kiwify. Cada ação consulta somente 10 produtos daquela página; **não** executa varredura automática do catálogo nem publica ofertas.
+- A importação mantém a estratégia de upsert no `affiliate_product_staging`, com isolamento pelo hash da conta configurada, sem armazenar compradores, preços ou links.
+- A ação **Ver catálogo em revisão** exibe até 20 registros persistidos mais recentes sem chamar a API Kiwify; exige sessão autenticada e token CSRF, além de `KIWIFY_ACCOUNT_ID` válido.
+- O campo de página é validado no servidor: valores não inteiros, arrays, números fora do intervalo e entradas ambíguas são recusados.
+- Para importar a próxima página, informe manualmente o número seguinte. A interface não interpreta paginação da API como garantia de que há mais registros.
+- Testes: `php tests/test_affiliate_import_page.php` e `php tests/test_affiliate_product_staging.php`. A workflow `affiliate-staging.yml` executa ambos em PHP 8.3 e 8.4, com MySQL 8 para o staging.
+- **Limitações:** credenciais reais não foram usadas; a lista em revisão ainda não permite editar preço, checkout, loja, imagens nem publicar produtos. Sincronização de comissões e outras plataformas continuam pendentes.
