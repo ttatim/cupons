@@ -50,5 +50,41 @@ HotmartCommissionStaging::stage($pdo, $ucode, $key, $page, 'APPROVED');
 checkStage(HotmartCommissionStaging::counts($pdo, $ucode, $key)['groups_to_review'] === 1, 'revisão não regride');
 $state = $pdo->query('SELECT observed_status, amount_cents FROM hotmart_commission_staging')->fetch(PDO::FETCH_ASSOC);
 checkStage($state['observed_status'] === 'REFUNDED' && (int) $state['amount_cents'] === 1100, 'estado estornado preservado, sem ajuste financeiro automático');
+checkStage(HotmartCommissionStaging::reviewBreakdown($pdo, $ucode, $key) === [
+    ['status' => 'REFUNDED', 'groups' => 1],
+], 'fila agregada por status de alerta');
+checkStage(HotmartCommissionStaging::reviewBreakdown($pdo, $other, $key) === [], 'fila de outra conta isolada');
+
+// Uma observação APPROVED atrasada não pode reverter valor, quantidade ou
+// status já sinalizados como reembolso; nenhum ajuste financeiro é calculado.
+$staleApproved = $page;
+$staleApproved[0]['commissions'][0]['commission']['value'] = '999.99';
+HotmartCommissionStaging::stage($pdo, $ucode, $key, $staleApproved, 'APPROVED');
+$preserved = $pdo->query("SELECT observed_status, amount_cents, commission_count, review_required
+    FROM hotmart_commission_staging WHERE source = 'AFFILIATE'")->fetch(PDO::FETCH_ASSOC);
+checkStage($preserved['observed_status'] === 'REFUNDED'
+    && (int) $preserved['amount_cents'] === 1100
+    && (int) $preserved['commission_count'] === 2
+    && (int) $preserved['review_required'] === 1, 'observação tardia não altera alerta');
+
+// Novo status de risco pode atualizar o alerta, mas nunca o resolver sozinho.
+$chargeback = $page;
+$chargeback[0]['commissions'][0]['commission']['value'] = '2.50';
+HotmartCommissionStaging::stage($pdo, $ucode, $key, $chargeback, 'CHARGEBACK');
+$updated = $pdo->query("SELECT observed_status, amount_cents, review_required
+    FROM hotmart_commission_staging WHERE source = 'AFFILIATE'")->fetch(PDO::FETCH_ASSOC);
+checkStage($updated['observed_status'] === 'CHARGEBACK'
+    && (int) $updated['amount_cents'] === 325
+    && (int) $updated['review_required'] === 1, 'novo estorno mantém revisão');
+checkStage(HotmartCommissionStaging::reviewBreakdown($pdo, $ucode, $key) === [
+    ['status' => 'CHARGEBACK', 'groups' => 1],
+], 'fila reflete último alerta observado');
+HotmartCommissionStaging::stage($pdo, $other, $key, $page, 'PARTIALLY_REFUNDED');
+checkStage(HotmartCommissionStaging::reviewBreakdown($pdo, $other, $key) === [
+    ['status' => 'PARTIALLY_REFUNDED', 'groups' => 1],
+], 'alerta de outra conta independente');
+checkStage(HotmartCommissionStaging::reviewBreakdown($pdo, $ucode, $key) === [
+    ['status' => 'CHARGEBACK', 'groups' => 1],
+], 'consulta de outra conta não mistura alertas');
 $pdo->exec('DELETE FROM hotmart_commission_staging');
-echo "Hotmart staging: MySQL, idempotência, isolamento e estornos para revisão aprovados.\n";
+echo "Hotmart staging: MySQL, idempotência, isolamento e alertas de reembolso/estorno aprovados.\n";
