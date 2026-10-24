@@ -4,7 +4,7 @@ function isLoggedIn() {
 }
 
 function login($username, $password, $pdo) {
-    $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE username = ?");
+    $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE username = ? AND ativo = 1");
     $stmt->execute([$username]);
     $user = $stmt->fetch();
     
