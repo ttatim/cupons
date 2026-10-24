@@ -56,6 +56,13 @@ foreach (["bad\\r\\nInjected: yes", "bad&other=1", str_repeat('x', 1025), ''] as
     } catch (InvalidArgumentException $expected) {}
 }
 assertCommission(count($calls) === 4, 'cursor inválido não gera requisição');
+$client->hotmartSalesCommissions(10, null, 'REFUNDED');
+assertCommission(str_contains($calls[4]['url'], 'transaction_status=REFUNDED'), 'filtro de reembolso codificado');
+try {
+    $client->hotmartSalesCommissions(10, null, 'UNSUPPORTED');
+    throw new RuntimeException('Filtro de status inválido aceito');
+} catch (InvalidArgumentException $expected) {}
+assertCommission(count($calls) === 5, 'status inválido não gera requisição');
 $invalidCursorTransport = static function (string $method, string $url): array {
     if (str_contains($url, '/oauth/token')) {
         return ['status' => 200, 'body' => '{"access_token":"test-token","expires_in":3600}'];

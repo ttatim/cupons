@@ -65,6 +65,8 @@ jobs:
         run: php tests/test_hotmart_commission_preview.php
       - name: Hotmart UCODE-matched commission preview tests
         run: php tests/test_hotmart_commission_account_preview.php
+      - name: Hotmart commission staging validation tests
+        run: php tests/test_hotmart_commission_staging.php
       - name: Kiwify integration unit tests
         run: php tests/test_kiwify_integration.php
       - name: Monetizze authentication unit tests
