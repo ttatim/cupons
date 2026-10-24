@@ -137,7 +137,7 @@ final class OfferMetadataImporter
                 $title = $title ?: trim((string)($item['name'] ?? ''));
                 $description = $description ?: trim(strip_tags((string)($item['description'] ?? '')));
                 $offer = $item['offers'] ?? [];
-                if (array_is_list($offer)) {
+                if (is_array($offer) && array_is_list($offer)) {
                     $offer = $offer[0] ?? [];
                 }
                 if (is_array($offer)) {
