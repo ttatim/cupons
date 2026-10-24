@@ -75,3 +75,14 @@
 - Para importar a próxima página, informe manualmente o número seguinte. A interface não interpreta paginação da API como garantia de que há mais registros.
 - Testes: `php tests/test_affiliate_import_page.php` e `php tests/test_affiliate_product_staging.php`. A workflow `affiliate-staging.yml` executa ambos em PHP 8.3 e 8.4, com MySQL 8 para o staging.
 - **Limitações:** credenciais reais não foram usadas; a lista em revisão ainda não permite editar preço, checkout, loja, imagens nem publicar produtos. Sincronização de comissões e outras plataformas continuam pendentes.
+
+
+## Complemento: enriquecimento manual do catálogo Kiwify (24/10/2026)
+
+- O painel **Integração > Afiliados > Ver catálogo em revisão** permite editar, para cada produto já importado, descrição (até 1500 caracteres), preço, preço original, URL HTTPS de checkout, URL HTTPS de imagem e loja existente.
+- A ação **Salvar revisão (não publicar)** atualiza exclusivamente o registro Kiwify da conta atualmente configurada. Não altera a tabela pública de produtos, não gera links automaticamente, não chama as URLs informadas e não publica anúncios.
+- Preços usam ponto decimal, até duas casas; o preço original não pode ser inferior ao preço atual. URLs usam HTTPS, sem credenciais embutidas, hosts locais ou IPs privados/reservados. Campos opcionais podem ficar vazios.
+- Os dados manuais de revisão são preservados quando a importação da API atualiza nome ou status do produto. O isolamento por hash da conta e o token CSRF continuam obrigatórios.
+- **Migração obrigatória:** execute sql/updates/20261024_affiliate_product_review.sql após sql/updates/20261024_affiliate_product_staging.sql. A migração adiciona campos opcionais e referência à tabela lojas, sem inserir dados de exemplo. Faça backup antes de aplicar em banco existente.
+- **Testes:** php tests/test_affiliate_product_review.php valida entradas mesmo sem banco; com TEST_DB_DSN apontando para cupons_test, testa gravação, isolamento entre contas, rollback e preservação no upsert. A workflow affiliate-staging.yml executa o teste com MySQL 8 e PHP 8.3/8.4.
+- **Limitações:** não existe botão de publicação; checkout e imagens são URLs fornecidas pelo operador, não verificadas por conexão externa. Ainda faltam autorização por vendedor, publicação supervisionada, sincronização de comissões e homologação com credenciais reais.

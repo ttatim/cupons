@@ -48,7 +48,12 @@ if (!str_contains($dsn, 'dbname=cupons_test')) {
 $pdo = new PDO($dsn, (string) getenv('TEST_DB_USER'), (string) getenv('TEST_DB_PASSWORD'), [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
 ]);
+$pdo->exec("CREATE TABLE IF NOT EXISTS lojas (id INT PRIMARY KEY, nome VARCHAR(100) NOT NULL) ENGINE=InnoDB");
 $pdo->exec((string) file_get_contents(__DIR__ . '/../sql/updates/20261024_affiliate_product_staging.sql'));
+$column = $pdo->query("SHOW COLUMNS FROM affiliate_product_staging LIKE 'review_description'")->fetch(PDO::FETCH_ASSOC);
+if ($column === false) {
+    $pdo->exec((string) file_get_contents(__DIR__ . '/../sql/updates/20261024_affiliate_product_review.sql'));
+}
 $pdo->exec('DELETE FROM affiliate_product_staging');
 $result = AffiliateProductStaging::stageKiwify($pdo, 'test-account-a', [$product, ['id' => '', 'name' => 'Inválido']]);
 assertStaging($result === ['processed' => 1, 'rejected' => 1], 'contagem de importação');

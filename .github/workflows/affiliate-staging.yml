@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - 'includes/affiliate_product_staging.php'
+      - 'includes/affiliate_product_review.php'
+      - 'sql/updates/20261024_affiliate_product_review.sql'
+      - 'tests/test_affiliate_product_review.php'
       - 'includes/affiliate_import_page.php'
       - 'admin/integracoes-afiliados.php'
       - 'sql/updates/20261024_affiliate_product_staging.sql'
@@ -14,6 +17,9 @@ on:
     branches: [main]
     paths:
       - 'includes/affiliate_product_staging.php'
+      - 'includes/affiliate_product_review.php'
+      - 'sql/updates/20261024_affiliate_product_review.sql'
+      - 'tests/test_affiliate_product_review.php'
       - 'includes/affiliate_import_page.php'
       - 'admin/integracoes-afiliados.php'
       - 'sql/updates/20261024_affiliate_product_staging.sql'
@@ -53,9 +59,11 @@ jobs:
       - name: PHP syntax
         run: |
           php -l includes/affiliate_product_staging.php
+          php -l includes/affiliate_product_review.php
           php -l includes/affiliate_import_page.php
           php -l admin/integracoes-afiliados.php
           php -l tests/test_affiliate_product_staging.php
+          php -l tests/test_affiliate_product_review.php
           php -l tests/test_affiliate_import_page.php
       - name: Validate manual pagination
         run: php tests/test_affiliate_import_page.php
@@ -64,4 +72,6 @@ jobs:
           TEST_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=cupons_test;charset=utf8mb4'
           TEST_DB_USER: cupons
           TEST_DB_PASSWORD: testpass
-        run: php tests/test_affiliate_product_staging.php
+        run: |
+          php tests/test_affiliate_product_staging.php
+          php tests/test_affiliate_product_review.php

@@ -5,6 +5,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/affiliate_integrations.php';
 require_once __DIR__ . '/../includes/affiliate_product_staging.php';
 require_once __DIR__ . '/../includes/affiliate_import_page.php';
+require_once __DIR__ . '/../includes/affiliate_product_review.php';
 
 if (!isLoggedIn()) {
     header('Location: login.php');
@@ -17,6 +18,8 @@ $kiwifyProducts = null;
 $stagingResult = null;
 $kiwifyPage = 1;
 $stagedProducts = null;
+$reviewSaved = false;
+$reviewStores = [];
 $monetizzeChecked = false;
 $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -37,6 +40,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stagedProducts = AffiliateProductStaging::listKiwify($pdo, trim((string) getenv('KIWIFY_ACCOUNT_ID')));
         } elseif ($action === 'kiwify_review') {
             $stagedProducts = AffiliateProductStaging::listKiwify($pdo, trim((string) getenv('KIWIFY_ACCOUNT_ID')));
+        } elseif ($action === 'kiwify_review_save') {
+            $externalId = $_POST['external_id'] ?? null;
+            if (!is_string($externalId)) {
+                throw new InvalidArgumentException('Identificador externo inválido.');
+            }
+            AffiliateProductReview::saveKiwify($pdo, trim((string) getenv('KIWIFY_ACCOUNT_ID')), $externalId, $_POST);
+            $stagedProducts = AffiliateProductStaging::listKiwify($pdo, trim((string) getenv('KIWIFY_ACCOUNT_ID')));
+            $reviewSaved = true;
         } elseif ($action === 'monetizze_check') {
             $monetizzeChecked = (new MonetizzeIntegration())->checkConnection();
         } else {
@@ -44,9 +55,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } catch (Throwable $exception) {
         $error = $exception instanceof PDOException
-            ? 'Não foi possível salvar o catálogo. Confira a migração affiliate_product_staging e as permissões do banco.'
+            ? 'Não foi possível salvar o catálogo. Confira as migrações affiliate_product_staging e affiliate_product_review e as permissões do banco.'
             : $exception->getMessage();
     }
+}
+if ($stagedProducts !== null) {
+    $reviewStores = $pdo->query('SELECT id, nome FROM lojas ORDER BY nome LIMIT 200')->fetchAll(PDO::FETCH_ASSOC);
 }
 function hAffiliate(string $value): string
 {
@@ -136,6 +150,9 @@ function hAffiliate(string $value): string
                     <?php if ($stagingResult !== null): ?>
                         <div class="alert alert-info mt-3">Página <?= (int) $kiwifyPage ?> importada: <?= (int) $stagingResult['processed'] ?> registro(s) processado(s), <?= (int) $stagingResult['rejected'] ?> rejeitado(s). Nenhuma oferta foi publicada.</div>
                     <?php endif; ?>
+                    <?php if ($reviewSaved): ?>
+                        <div class="alert alert-success mt-3">Dados de revisão salvos. O produto continua fora da vitrine.</div>
+                    <?php endif; ?>
                     <?php if ($stagedProducts !== null): ?>
                         <h3 class="h6 mt-3">Registros em revisão (até 20 mais recentes)</h3>
                         <div class="table-responsive"><table class="table table-sm">
@@ -144,6 +161,47 @@ function hAffiliate(string $value): string
                                 <tr><td><?= hAffiliate((string) $item['external_id']) ?></td><td><?= hAffiliate((string) $item['name']) ?></td><td><?= hAffiliate((string) $item['status']) ?></td><td><?= hAffiliate((string) ($item['currency'] ?? '-')) ?></td></tr>
                             <?php endforeach; ?>
                             </tbody></table></div>
+                        <p class="small text-muted">Os campos abaixo são editáveis apenas na área administrativa. Salvar não publica o produto nem consulta os links.</p>
+                        <?php foreach ($stagedProducts as $item): ?>
+                            <details class="border rounded p-3 mb-2">
+                                <summary><?= hAffiliate((string) $item['name']) ?> — editar revisão</summary>
+                                <form method="post" class="row g-2 mt-2">
+                                    <input type="hidden" name="csrf_token" value="<?= hAffiliate($csrfToken) ?>">
+                                    <input type="hidden" name="action" value="kiwify_review_save">
+                                    <input type="hidden" name="external_id" value="<?= hAffiliate((string) $item['external_id']) ?>">
+                                    <div class="col-12">
+                                        <label class="form-label">Descrição (até 1500 caracteres)</label>
+                                        <textarea class="form-control" name="description" maxlength="1500" rows="3"><?= hAffiliate((string) ($item['review_description'] ?? '')) ?></textarea>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Preço</label>
+                                        <input class="form-control" name="price" inputmode="decimal" placeholder="99.90" value="<?= hAffiliate((string) ($item['review_price'] ?? '')) ?>">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Preço original</label>
+                                        <input class="form-control" name="original_price" inputmode="decimal" placeholder="129.90" value="<?= hAffiliate((string) ($item['review_original_price'] ?? '')) ?>">
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label">URL HTTPS de checkout</label>
+                                        <input class="form-control" type="url" name="checkout_url" maxlength="2048" value="<?= hAffiliate((string) ($item['review_checkout_url'] ?? '')) ?>">
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label">URL HTTPS da imagem</label>
+                                        <input class="form-control" type="url" name="image_url" maxlength="2048" value="<?= hAffiliate((string) ($item['review_image_url'] ?? '')) ?>">
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label">Loja</label>
+                                        <select class="form-select" name="store_id">
+                                            <option value="">Selecionar posteriormente</option>
+                                            <?php foreach ($reviewStores as $store): ?>
+                                                <option value="<?= (int) $store['id'] ?>" <?= (int) ($item['review_store_id'] ?? 0) === (int) $store['id'] ? 'selected' : '' ?>><?= hAffiliate((string) $store['nome']) ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="col-12"><button type="submit" class="btn btn-primary">Salvar revisão (não publicar)</button></div>
+                                </form>
+                            </details>
+                        <?php endforeach; ?>
                     <?php endif; ?>
                     <?php if ($kiwifyProducts !== null): ?>
                         <div class="alert alert-success mt-3">Página <?= (int) $kiwifyPage ?>: consulta concluída com <?= count($kiwifyProducts['data']) ?> produto(s). Nenhuma oferta foi publicada.</div>
