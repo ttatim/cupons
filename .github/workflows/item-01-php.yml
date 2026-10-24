@@ -1,0 +1,30 @@
+name: PHP item 01 validation
+
+on:
+  push:
+    branches:
+      - main
+      - feat/item-01-importacao-segura-20261024
+  pull_request:
+    branches: [main]
+
+jobs:
+  php:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: curl, dom, mbstring, pdo_mysql
+          coverage: none
+      - name: Lint changed PHP entrypoints
+        run: |
+          php -l includes/offer_metadata_importer.php
+          php -l admin/importar.php
+          php -l go.php
+          php -l index.php
+          php -l tests/test_offer_importer.php
+      - name: Importer unit tests
+        run: php tests/test_offer_importer.php
