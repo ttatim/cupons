@@ -17,6 +17,7 @@ on:
       - 'tests/test_affiliate_import_page.php'
       - 'includes/hotmart_commission_staging.php'
       - 'sql/updates/20261024_hotmart_commission_staging.sql'
+      - 'tests/test_hotmart_commission_staging.php'
       - '.github/workflows/affiliate-staging.yml'
   push:
     branches: [main]
@@ -35,6 +36,7 @@ on:
       - 'tests/test_affiliate_import_page.php'
       - 'includes/hotmart_commission_staging.php'
       - 'sql/updates/20261024_hotmart_commission_staging.sql'
+      - 'tests/test_hotmart_commission_staging.php'
       - '.github/workflows/affiliate-staging.yml'
 
 jobs:
