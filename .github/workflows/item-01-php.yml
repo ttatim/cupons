@@ -59,6 +59,8 @@ jobs:
         run: php tests/test_runtime_requirements.php
       - name: Importer unit tests
         run: php tests/test_offer_importer.php
+      - name: Affiliate integrations unit tests
+        run: php tests/test_affiliate_integrations.php
       - name: Clean install and storefront smoke test
         run: php tests/test_clean_install.php
       - name: Provision initial administrator through CLI

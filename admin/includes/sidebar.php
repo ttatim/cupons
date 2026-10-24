@@ -28,6 +28,7 @@ $page_sections = [
     'relatorios.php' => 'analytics',
     
     'api-sync.php' => 'integracao',
+    'integracoes-afiliados.php' => 'integracao',
     'api-config.php' => 'integracao',
     
     'configuracoes.php' => 'sistema',
@@ -203,6 +204,7 @@ try {
                 </a>
                 <div class="collapse <?= $current_section === 'integracao' ? 'show' : '' ?>" id="collapseIntegracao">
                     <ul class="nav flex-column ms-3">
+                        <li class="nav-item"><a class="nav-link <?= $current_page === 'integracoes-afiliados.php' ? 'active' : '' ?>" href="integracoes-afiliados.php"><i class="bi bi-link-45deg me-2"></i>Afiliados</a></li>
                         <li class="nav-item">
                             <a class="nav-link <?= $current_page === 'api-sync.php' ? 'active' : '' ?>" href="api-sync.php">
                                 <i class="bi bi-cloud-arrow-down me-2"></i>
