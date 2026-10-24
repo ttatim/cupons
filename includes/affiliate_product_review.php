@@ -71,8 +71,9 @@ final class AffiliateProductReview
     public static function validate(array $input): array
     {
         $description = $input['description'] ?? '';
-        if (!is_string($description) || strlen(trim($description)) > 1500) {
-            throw new InvalidArgumentException('Descrição deve ter até 1500 bytes.');
+        if (!is_string($description) || !mb_check_encoding($description, 'UTF-8')
+            || mb_strlen(trim($description), 'UTF-8') > 1500) {
+            throw new InvalidArgumentException('Descrição deve ter até 1500 caracteres.');
         }
         $description = trim($description);
         $price = self::money($input['price'] ?? '', 'Preço');
