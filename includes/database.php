@@ -386,7 +386,7 @@ class Database {
             ];
             
             // Tamanho do banco
-            $stmt = $this->pdo->query("
+            $stmt = $this->pdo->prepare("
                 SELECT 
                     table_schema as database_name,
                     ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) as size_mb
@@ -402,7 +402,7 @@ class Database {
             }
             
             // Contagem de tabelas
-            $stmt = $this->pdo->query("
+            $stmt = $this->pdo->prepare("
                 SELECT COUNT(*) as table_count 
                 FROM information_schema.tables 
                 WHERE table_schema = ?
