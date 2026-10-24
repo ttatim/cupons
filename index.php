@@ -1,158 +1,39 @@
 <?php
-require_once 'includes/config.php';
+declare(strict_types=1);
+require_once __DIR__ . '/includes/config.php';
+$produtos = $pdo->query("SELECT p.id,p.nome,p.descricao,p.preco,p.preco_original,p.imagens,l.nome AS loja FROM produtos p JOIN lojas l ON l.id=p.loja_id WHERE p.ativo=1 ORDER BY p.created_at DESC LIMIT 16")->fetchAll(PDO::FETCH_ASSOC);
+$cupons = $pdo->query("SELECT c.id,c.descricao,c.codigo,c.tipo,c.valor,c.data_fim,l.nome AS loja FROM cupons c JOIN lojas l ON l.id=c.loja_id WHERE c.ativo=1 AND c.data_fim>=CURDATE() ORDER BY c.created_at DESC LIMIT 16")->fetchAll(PDO::FETCH_ASSOC);
+function h(string $s): string { return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
 ?>
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TTaTim Cupons - Melhores Ofertas e Descontos</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        :root {
-            --royal-blue: #4169E1;
-            --light-gray: #f8f9fa;
-        }
-        .header, .footer {
-            background: var(--royal-blue);
-            color: white;
-        }
-        .offer-card {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-            padding: 15px;
-        }
-        .btn-red {
-            background: #dc3545;
-            color: white;
-            width: 100%;
-            padding: 10px;
-        }
-        .btn-red:hover {
-            background: #c82333;
-            color: white;
-        }
-    </style>
-</head>
-<body>
-    <!-- Header -->
-    <header class="header py-3">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-md-6">
-                    <h1 class="h4 mb-0 text-white">TTaTim Cupons</h1>
-                </div>
-                <div class="col-md-6 text-end">
-                    <a href="admin/login.php" class="btn btn-light btn-sm">Área Admin</a>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <!-- Conteúdo Principal -->
-    <main class="container my-4">
-        <div class="row">
-            <!-- Lista de Cupons -->
-            <div class="col-md-8">
-                <?php
-                $stmt = $pdo->query("
-                    SELECT c.*, l.nome as loja_nome, l.slug as loja_slug 
-                    FROM cupons c 
-                    JOIN lojas l ON c.loja_id = l.id 
-                    WHERE c.ativo = 1 AND c.data_fim >= CURDATE() 
-                    ORDER BY c.created_at DESC
-                    LIMIT 20
-                ");
-                
-                while ($cupom = $stmt->fetch()) {
-                    $desconto = $cupom['tipo'] === 'percentual' ? $cupom['valor'] . '%' : 'R$ ' . $cupom['valor'];
-                ?>
-                <div class="offer-card">
-                    <div class="row">
-                        <div class="col-md-8">
-                            <h5><?= htmlspecialchars($cupom['descricao']) ?></h5>
-                            <p class="text-success mb-1"><strong><?= $desconto ?> de desconto</strong></p>
-                            <p class="text-muted mb-1">Código: <code><?= htmlspecialchars($cupom['codigo']) ?></code></p>
-                            <p class="text-muted">Válido até: <?= date('d/m/Y', strtotime($cupom['data_fim'])) ?></p>
-                        </div>
-                        <div class="col-md-4">
-                            <button class="btn btn-red" onclick="abrirCupom(<?= $cupom['id'] ?>)">
-                                Me leve para a loja
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <?php } ?>
-            </div>
-
-            <!-- Sidebar com Lojas -->
-            <div class="col-md-4">
-                <div class="offer-card">
-                    <h5>Lojas Parceiras</h5>
-                    <?php
-                    $stmt = $pdo->query("
-                        SELECT l.*, COUNT(c.id) as total_cupons 
-                        FROM lojas l 
-                        LEFT JOIN cupons c ON l.id = c.loja_id AND c.ativo = 1 AND c.data_fim >= CURDATE()
-                        GROUP BY l.id 
-                        ORDER BY total_cupons DESC
-                    ");
-                    
-                    while ($loja = $stmt->fetch()) {
-                        echo "<a href='loja.php?slug={$loja['slug']}' class='d-block py-2 text-decoration-none'>{$loja['nome']} ({$loja['total_cupons']})</a>";
-                    }
-                    ?>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- Footer -->
-    <footer class="footer py-4 mt-5">
-        <div class="container text-center">
-            <p class="mb-0">&copy; 2024 TTaTim Cupons. Todos os direitos reservados.</p>
-        </div>
-    </footer>
-
-    <!-- Modal para Cupom -->
-    <div class="modal fade" id="cupomModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Detalhes do Cupom</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body" id="modalContent">
-                    <!-- Conteúdo carregado via AJAX -->
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-    function abrirCupom(cupomId) {
-        fetch(`ajax/cupom.php?id=${cupomId}`)
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('modalContent').innerHTML = `
-                    <h6>${data.descricao}</h6>
-                    <p><strong>Desconto:</strong> ${data.desconto}</p>
-                    <p><strong>Código:</strong> <code>${data.codigo}</code></p>
-                    <p><strong>Validade:</strong> ${data.validade}</p>
-                    <button class="btn btn-red" onclick="irParaLoja('${data.link}')">
-                        Me leve para a loja
-                    </button>
-                `;
-                new bootstrap.Modal(document.getElementById('cupomModal')).show();
-            });
-    }
-
-    function irParaLoja(link) {
-        window.open(link, '_blank');
-    }
-    </script>
-</body>
-</html>
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cupons e ofertas</title><meta name="description" content="Produtos, promoções e cupons em um só lugar.">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>body{background:#f5f7fc}.site-header{background:#194aa6}.offer{border:0;border-radius:1rem;box-shadow:0 3px 20px #173b7018;height:100%}.offer img{height:180px;object-fit:contain;padding:12px}.offer .btn-primary{background:#1769df;border-color:#1769df}.summary{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;min-height:4em}</style></head>
+<body><header class="site-header py-3"><div class="container d-flex justify-content-between align-items-center"><a href="index.php" class="text-white text-decoration-none h4 mb-0">Cupons & Ofertas</a><a class="btn btn-outline-light btn-sm" href="admin/login.php">Área administrativa</a></div></header>
+<main class="container py-5"><h1 class="display-6 fw-bold">Ofertas selecionadas</h1><p class="text-secondary mb-5">Consulte preços, garantias e condições na loja de destino.</p>
+<section class="mb-5"><h2 class="h3 mb-4">Produtos</h2><div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-4">
+<?php foreach($produtos as $p):
+$images=json_decode((string)($p['imagens']??'[]'),true);
+$img=is_array($images)?(string)($images[0]??''):'';
+if($img!=='' && !str_starts_with($img,'https://')){$img='assets/images/produtos/'.basename($img);}
+?>
+<div class="col"><article class="card offer">
+<?php if($img!==''):?><img src="<?= h($img) ?>" alt="<?= h($p['nome']) ?>" class="card-img-top" loading="lazy"><?php endif;?>
+<div class="card-body d-flex flex-column"><small class="text-muted"><?= h($p['loja']) ?></small><h3 class="h6 mt-2"><?= h($p['nome']) ?></h3>
+<p class="text-secondary small summary"><?= h(mb_substr((string)$p['descricao'],0,180)) ?></p>
+<?php if($p['preco_original']!==null && (float)$p['preco_original']>(float)$p['preco']):?><small class="text-decoration-line-through text-secondary">R$ <?= number_format((float)$p['preco_original'],2,',','.') ?></small><?php endif;?>
+<p class="text-primary fw-bold fs-5">R$ <?= number_format((float)$p['preco'],2,',','.') ?></p>
+<a class="btn btn-primary w-100 mt-auto" href="go.php?tipo=produto&amp;id=<?= (int)$p['id'] ?>" rel="nofollow sponsored">ir para pagamento</a>
+</div></article></div><?php endforeach;?>
+<?php if(!$produtos):?><p class="text-secondary">Nenhum produto publicado.</p><?php endif;?>
+</div></section>
+<section><h2 class="h3 mb-4">Cupons</h2><div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-4">
+<?php foreach($cupons as $c):?><div class="col"><article class="card offer"><div class="card-body d-flex flex-column">
+<small class="text-muted"><?= h($c['loja']) ?></small><h3 class="h6 mt-2"><?= h($c['descricao']) ?></h3>
+<p class="text-success fw-bold"><?= h($c['tipo']==='percentual'?number_format((float)$c['valor'],0).'%':'R$ '.number_format((float)$c['valor'],2,',','.')) ?> de desconto</p>
+<?php if($c['codigo']!==''):?><p class="small">Código: <strong><?= h($c['codigo']) ?></strong></p><?php endif;?>
+<p class="small text-secondary">Válido até <?= date('d/m/Y',strtotime($c['data_fim'])) ?></p>
+<a class="btn btn-primary w-100 mt-auto" href="go.php?tipo=cupom&amp;id=<?= (int)$c['id'] ?>" rel="nofollow sponsored">Pegue seu cupom</a>
+</div></article></div><?php endforeach;?>
+<?php if(!$cupons):?><p class="text-secondary">Nenhum cupom ativo.</p><?php endif;?>
+</div></section></main><footer class="py-4 text-center text-secondary small border-top">Cupons & Ofertas — condições definidas pelos fornecedores.</footer></body></html>
