@@ -26,5 +26,11 @@ jobs:
           php -l go.php
           php -l index.php
           php -l tests/test_offer_importer.php
+          php -l includes/config.php
+          php -l includes/database.php
+          php -l includes/auth.php
+          php -l admin/login.php
+          php -l admin/includes/sidebar.php
+          php -l scripts/create_admin.php
       - name: Importer unit tests
         run: php tests/test_offer_importer.php
