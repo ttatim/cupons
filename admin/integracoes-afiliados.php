@@ -16,6 +16,8 @@ $statuses = AffiliateIntegrations::status();
 $csrfToken = Security::generateCSRFToken();
 $summary = null;
 $commissionPreview = null;
+$commissionPage = null;
+$commissionHasNext = false;
 $kiwifyProducts = null;
 $stagingResult = null;
 $kiwifyPage = 1;
@@ -35,10 +37,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $action = (string) ($_POST['action'] ?? '');
         if ($action === 'hotmart_summary') {
             $summary = (new AffiliateIntegrations())->hotmartSalesSummary(10);
-        } elseif ($action === 'hotmart_commissions') {
-            $commissionData = (new AffiliateIntegrations())->hotmartSalesCommissions(10);
+        } elseif ($action === 'hotmart_commissions' || $action === 'hotmart_commissions_next') {
+            $nextPage = $action === 'hotmart_commissions_next';
+            // O cursor fica exclusivamente na sessão; nunca é enviado ao navegador.
+            $cursor = $nextPage ? ($_SESSION['hotmart_commissions_next'] ?? null) : null;
+            if ($nextPage && (!is_string($cursor) || $cursor === '')) {
+                throw new RuntimeException('Não há próxima página disponível. Inicie uma nova consulta.');
+            }
+            $commissionData = (new AffiliateIntegrations())->hotmartSalesCommissions(10, $cursor);
             require_once __DIR__ . '/../includes/hotmart_commission_preview.php';
             $commissionPreview = HotmartCommissionPreview::summarize($commissionData['items']);
+            $commissionPage = $nextPage ? (int) ($_SESSION['hotmart_commissions_page'] ?? 1) + 1 : 1;
+            $_SESSION['hotmart_commissions_page'] = $commissionPage;
+            $_SESSION['hotmart_commissions_next'] = $commissionData['page_info']['next_page_token'];
+            $commissionHasNext = $_SESSION['hotmart_commissions_next'] !== null;
         } elseif ($action === 'kiwify_products') {
             $kiwifyPage = AffiliateImportPage::parse($_POST['kiwify_page'] ?? null);
             $kiwifyProducts = (new KiwifyIntegration())->listProducts($kiwifyPage, 10);
@@ -150,20 +162,29 @@ function hAffiliate(string $value): string
             <section class="card mt-3">
                 <div class="card-body">
                     <h2 class="h5">Hotmart — Prévia de comissões por moeda e origem</h2>
-                    <p>Consulta manual somente leitura da primeira página (até 10 transações). Sem filtros, a API considera APPROVED/COMPLETE. Valores de todos os participantes são agregados; <strong>não representam sua comissão individual, saldo disponível ou conciliação financeira</strong>. Nenhum nome, comprador, token ou ID de transação é armazenado.</p>
+                    <p>Consulta manual paginada (até 10 transações por página). Sem filtros, a API considera APPROVED/COMPLETE. Valores de todos os participantes são agregados; <strong>não representam sua comissão individual, saldo disponível ou conciliação financeira</strong>. Nenhum nome, comprador, token ou ID de transação é armazenado.</p>
                     <form method="post">
                         <input type="hidden" name="csrf_token" value="<?= hAffiliate($csrfToken) ?>">
                         <input type="hidden" name="action" value="hotmart_commissions">
-                        <button class="btn btn-outline-primary" type="submit" <?= $statuses['hotmart']['ready'] ? '' : 'disabled' ?>>Consultar prévia de comissões</button>
+                        <button class="btn btn-outline-primary" type="submit" <?= $statuses['hotmart']['ready'] ? '' : 'disabled' ?>>Iniciar consulta de comissões</button>
                     </form>
                     <?php if ($commissionPreview !== null): ?>
-                        <div class="alert alert-info mt-3"><?= (int) $commissionPreview['transactions_in_page'] ?> transação(ões) e <?= (int) $commissionPreview['commissions_in_page'] ?> comissão(ões) nesta página. Nenhum dado persistido.</div>
+                        <div class="alert alert-info mt-3">Página <?= (int) $commissionPage ?>: <?= (int) $commissionPreview['transactions_in_page'] ?> transação(ões) e <?= (int) $commissionPreview['commissions_in_page'] ?> comissão(ões). Totais exclusivos desta página, não cumulativos. Nenhum dado financeiro persistido.</div>
                         <div class="table-responsive"><table class="table table-sm">
                             <thead><tr><th>Origem</th><th>Moeda</th><th>Comissões</th><th>Valor agregado</th></tr></thead><tbody>
                             <?php foreach ($commissionPreview['totals'] as $group): ?>
                                 <tr><td><?= hAffiliate($group['source']) ?></td><td><?= hAffiliate($group['currency']) ?></td><td><?= (int) $group['count'] ?></td><td><?= hAffiliate($group['amount']) ?></td></tr>
                             <?php endforeach; ?>
                             </tbody></table></div>
+                        <?php if ($commissionHasNext): ?>
+                            <form method="post" class="mt-3">
+                                <input type="hidden" name="csrf_token" value="<?= hAffiliate($csrfToken) ?>">
+                                <input type="hidden" name="action" value="hotmart_commissions_next">
+                                <button class="btn btn-outline-primary" type="submit">Consultar próxima página</button>
+                            </form>
+                        <?php else: ?>
+                            <p class="small text-muted mt-2">A API não informou uma próxima página.</p>
+                        <?php endif; ?>
                     <?php endif; ?>
                 </div>
             </section>
