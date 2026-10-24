@@ -30,3 +30,14 @@ O CI de compatibilidade executa o teste em PHP 8.3 e 8.4. Não exige MySQL, cURL
 - API Monetizze: https://help.monetizze.com.br/books/integracoes/page/api-monetizze
 
 **Instalação:** nenhuma migração SQL, biblioteca ou variável de ambiente nova nesta subetapa. O código não altera dados existentes nem habilita uma nova rota.
+
+
+## Incremento: verificação de relay interno assinado (24/10/2026)
+
+- A classe \`includes/monetizze_signed_relay_review.php\` valida um **envelope HMAC-SHA256 produzido por um relay de confiança controlado pelo operador**. **Não é uma assinatura nativa da Monetizze**. O relay precisa autenticar a origem upstream de forma independente antes de assinar os bytes recebidos.
+- Protocolo interno v1: \`hex(HMAC_SHA256(secret, "monetizze-relay-v1\n" + timestamp + "\n" + nonce + "\n" + rawJson))\`. \`timestamp\` é Unix epoch decimal em segundos, \`nonce\` tem 32 caracteres hexadecimais minúsculos aleatórios, \`signature\` tem 64 caracteres hexadecimais minúsculos. Segredo aleatório de 32 a 512 bytes, mantido **fora do repositório**. Não existe variável de ambiente operacional nova porque nenhum endpoint ou relay foi habilitado.
+- Rejeita assinatura incorreta, timestamp fora de ±300 segundos, nonce/assinatura malformados, segredo inadequado, JSON inválido, corpo acima de 64 KiB e lotes fora das regras da prévia. Assina **bytes exatos**, não JSON recodificado. Comparação da assinatura com \`hash_equals\`.
+- Recebe callback obrigatório \`Closure(string $nonce, int $expiresAt): bool\` que deve implementar **reserva atômica e persistente de nonce**, retornando \`false\` para repetição, inclusive entre workers e reinícios. Sem essa implementação durável não existe proteção operacional contra replay. Falha do callback bloqueia o processamento. O teste utiliza armazenamento **somente em memória** para simular a interface.
+- A saída contém apenas contagens, \`relay_authenticated=true\` (assinatura do relay), \`authenticated=false\` (origem Monetizze **não** comprovada) e \`financial_ready=false\`. Não registra compradores, transações, valores, credenciais ou eventos.
+- **Sem endpoint HTTP**, sem webhook público, sem migração, sem persistência de eventos, sem conciliação, pagamentos ou reconhecimento de receita. Não implantar como webhook de produção sem autenticação upstream, armazenamento durável de nonce, homologação e isolamento por vendedor.
+- Testar com \`php tests/test_monetizze_signed_relay_review.php\`; CI em PHP 8.3 e 8.4. Casos: assinatura correta, adulteração, expiração, futuro, replay, JSON malformado, limites e falha de armazenamento.
