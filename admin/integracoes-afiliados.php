@@ -106,6 +106,7 @@ function hAffiliate(string $value): string
             <section class="card mt-3">
                 <div class="card-body">
                     <h2 class="h5">Kiwify — Produtos disponíveis</h2>
+                    <p><a href="affiliate-review.php" class="btn btn-outline-primary btn-sm">Revisar e publicar produtos importados</a></p>
                     <p>Consulta somente leitura à primeira página (até 10 produtos). Não publica ofertas, não modifica preços e não importa compradores.</p>
                     <form method="post">
                         <input type="hidden" name="csrf_token" value="<?= hAffiliate($csrfToken) ?>">
