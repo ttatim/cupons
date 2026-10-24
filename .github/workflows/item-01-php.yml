@@ -4,9 +4,12 @@ on:
   push:
     branches:
       - main
-      - feat/item-02-php83-runtime-20261024
   pull_request:
     branches: [main]
+
+concurrency:
+  group: php-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   php:
