@@ -104,11 +104,11 @@
 
 ## Complemento: prévia de comissões Hotmart (24/10/2026)
 
-- Consulta manual somente leitura de \`GET /payments/api/v1/sales/commissions\`, usando OAuth existente e no máximo 10 transações da **primeira página**. O filtro padrão da API, sem parâmetros adicionais, contempla APPROVED e COMPLETE.
+- Consulta manual somente leitura de `GET /payments/api/v1/sales/commissions`, usando OAuth existente e no máximo 10 transações da **primeira página**. O filtro padrão da API, sem parâmetros adicionais, contempla APPROVED e COMPLETE.
 - O painel mostra exclusivamente valores agregados **por moeda e papel do participante** (PRODUCER, COPRODUCER, AFFILIATE, ADDON; outras origens como OUTROS). Não retorna nomes, IDs de usuários, compradores, IDs de transação ou credenciais para a interface. Não persiste os resultados.
 - **A soma de participantes NÃO é comissão pessoal do operador, saldo a receber, valor liquidado nem conciliação financeira.** Podem existir vários participantes por transação e outras páginas, e reembolsos/chargebacks exigem tratamento próprio.
 - Validação estrita de formatos monetários com até duas casas decimais, agregação em centavos inteiros, separação por moeda e rejeição de payloads inválidos. Não há conversão cambial.
-- Testes: \`php tests/test_hotmart_commission_preview.php\`, incluído na matriz de CI PHP 8.3/8.4. Sem credenciais reais, o endpoint foi testado somente com respostas simuladas.
+- Testes: `php tests/test_hotmart_commission_preview.php`, incluído na matriz de CI PHP 8.3/8.4. Sem credenciais reais, o endpoint foi testado somente com respostas simuladas.
 - Próximos trabalhos: paginação por cursor, filtragem de status, identificação da conta comissionada, persistência mínima com idempotência, conciliação de estornos e validação real da API. Não executar pagamentos ou lançar receita contábil a partir desta prévia.
 - Documentação oficial: https://developers.hotmart.com/docs/pt-BR/v1/sales/sales-commissions/
 
@@ -223,6 +223,6 @@
 ## Complemento: relay interno assinado para Monetizze (24/10/2026)
 
 - Adicionado verificador HMAC-SHA256 de **relay próprio de confiança**, com timestamp, nonce, limite de payload e interface de reserva atômica anti-replay. **Não equivale à autenticação de webhook nativo Monetizze.**
-- O verificador é local, sem endpoint HTTP, persistência, alteração de banco ou uso financeiro. \`relay_authenticated\` significa apenas assinatura do relay validada; \`authenticated\` e \`financial_ready\` permanecem falsos.
+- O verificador é local, sem endpoint HTTP, persistência, alteração de banco ou uso financeiro. `relay_authenticated` significa apenas assinatura do relay validada; `authenticated` e `financial_ready` permanecem falsos.
 - O callback de replay precisa ser durável antes de uso operacional; o teste usa simulação em memória. A autenticação upstream e homologação oficial seguem bloqueadas.
-- Teste \`php tests/test_monetizze_signed_relay_review.php\` na matriz PHP 8.3/8.4; documentação do protocolo em [ETAPA-03-MONETIZZE-WEBHOOK-PREPARACAO.md](ETAPA-03-MONETIZZE-WEBHOOK-PREPARACAO.md).
+- Teste `php tests/test_monetizze_signed_relay_review.php` na matriz PHP 8.3/8.4; documentação do protocolo em [ETAPA-03-MONETIZZE-WEBHOOK-PREPARACAO.md](ETAPA-03-MONETIZZE-WEBHOOK-PREPARACAO.md).
