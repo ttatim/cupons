@@ -38,14 +38,25 @@ if ($dsn === '') { echo "Hotmart staging: validação, minimização e HMAC apro
 if (!str_contains($dsn, 'dbname=cupons_test')) { throw new RuntimeException('Banco de teste obrigatório: cupons_test.'); }
 $pdo = new PDO($dsn, (string) getenv('TEST_DB_USER'), (string) getenv('TEST_DB_PASSWORD'), [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $pdo->exec((string) file_get_contents(__DIR__ . '/../sql/updates/20261024_hotmart_commission_staging.sql'));
+$pdo->exec((string) file_get_contents(__DIR__ . '/../sql/updates/20261024_hotmart_commission_observations.sql'));
+$pdo->exec('DELETE FROM hotmart_commission_observations');
 $pdo->exec('DELETE FROM hotmart_commission_staging');
 $r = HotmartCommissionStaging::stage($pdo, $ucode, $key, $page, 'APPROVED');
-checkStage($r['groups_staged'] === 1 && $r['commissions_matched'] === 2 && !$r['review_required'], 'primeiro registro');
-HotmartCommissionStaging::stage($pdo, $ucode, $key, $page, 'APPROVED');
+checkStage($r['groups_staged'] === 1 && $r['commissions_matched'] === 2 && !$r['review_required']
+    && $r['observations_recorded'] === 1, 'primeiro registro e histórico');
+$repeat = HotmartCommissionStaging::stage($pdo, $ucode, $key, $page, 'APPROVED');
+checkStage($repeat['observations_recorded'] === 0, 'reimportação não duplica observação');
+checkStage(HotmartCommissionStaging::observationBreakdown($pdo, $ucode, $key) === [
+    ['status' => 'APPROVED', 'observations' => 1],
+], 'histórico agregado da conta');
 checkStage(HotmartCommissionStaging::counts($pdo, $ucode, $key) === ['groups_total' => 1, 'groups_to_review' => 0], 'idempotência');
 checkStage(HotmartCommissionStaging::counts($pdo, $other, $key)['groups_total'] === 0, 'isolamento de conta');
 HotmartCommissionStaging::stage($pdo, $ucode, $key, $page, 'REFUNDED');
 checkStage(HotmartCommissionStaging::counts($pdo, $ucode, $key)['groups_to_review'] === 1, 'reembolso exige revisão');
+checkStage(HotmartCommissionStaging::observationBreakdown($pdo, $ucode, $key) === [
+    ['status' => 'APPROVED', 'observations' => 1],
+    ['status' => 'REFUNDED', 'observations' => 1],
+], 'reembolso preservado em histórico distinto');
 HotmartCommissionStaging::stage($pdo, $ucode, $key, $page, 'APPROVED');
 checkStage(HotmartCommissionStaging::counts($pdo, $ucode, $key)['groups_to_review'] === 1, 'revisão não regride');
 $state = $pdo->query('SELECT observed_status, amount_cents FROM hotmart_commission_staging')->fetch(PDO::FETCH_ASSOC);
@@ -66,6 +77,10 @@ checkStage($preserved['observed_status'] === 'REFUNDED'
     && (int) $preserved['amount_cents'] === 1100
     && (int) $preserved['commission_count'] === 2
     && (int) $preserved['review_required'] === 1, 'observação tardia não altera alerta');
+checkStage(HotmartCommissionStaging::observationBreakdown($pdo, $ucode, $key) === [
+    ['status' => 'APPROVED', 'observations' => 2],
+    ['status' => 'REFUNDED', 'observations' => 1],
+], 'observação com novo valor é auditável sem desfazer alerta');
 
 // Novo status de risco pode atualizar o alerta, mas nunca o resolver sozinho.
 $chargeback = $page;
@@ -86,5 +101,16 @@ checkStage(HotmartCommissionStaging::reviewBreakdown($pdo, $other, $key) === [
 checkStage(HotmartCommissionStaging::reviewBreakdown($pdo, $ucode, $key) === [
     ['status' => 'CHARGEBACK', 'groups' => 1],
 ], 'consulta de outra conta não mistura alertas');
+checkStage(HotmartCommissionStaging::observationBreakdown($pdo, $ucode, $key) === [
+    ['status' => 'APPROVED', 'observations' => 2],
+    ['status' => 'CHARGEBACK', 'observations' => 1],
+    ['status' => 'REFUNDED', 'observations' => 1],
+], 'histórico não perde alertas anteriores');
+checkStage(HotmartCommissionStaging::observationBreakdown($pdo, $other, $key) === [
+    ['status' => 'PARTIALLY_REFUNDED', 'observations' => 1],
+], 'histórico de outra conta isolado');
+checkStage((int) $pdo->query('SELECT COUNT(*) FROM hotmart_commission_observations')->fetchColumn() === 5,
+    'idempotência e isolamento persistidos');
+$pdo->exec('DELETE FROM hotmart_commission_observations');
 $pdo->exec('DELETE FROM hotmart_commission_staging');
-echo "Hotmart staging: MySQL, idempotência, isolamento e alertas de reembolso/estorno aprovados.\n";
+echo "Hotmart staging: MySQL, histórico idempotente, isolamento e alertas aprovados.\n";
