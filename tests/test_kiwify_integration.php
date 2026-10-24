@@ -53,7 +53,7 @@ try {
 } catch (RuntimeException $e) {
     checkKiwify(str_contains($e->getMessage(), '401') && !str_contains($e->getMessage(), 'SECRET-NOT-FOR-LOG'), 'erro seguro');
 }
-putenv('KIWIFY_ACCOUNT_ID=bad\r\nX-Test: evil');
+putenv("KIWIFY_ACCOUNT_ID=bad\r\nX-Test: evil");
 try {
     (new KiwifyIntegration(static fn () => ['status' => 200, 'body' => '{}']))->listProducts();
     throw new RuntimeException('Aceitou account id com CRLF');
