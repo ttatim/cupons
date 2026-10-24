@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - 'includes/affiliate_product_staging.php'
+      - 'includes/affiliate_staging_publisher.php'
+      - 'admin/affiliate-review.php'
+      - 'sql/updates/20261024_affiliate_staging_publication.sql'
+      - 'tests/test_affiliate_staging_publication.php'
       - 'admin/integracoes-afiliados.php'
       - 'sql/updates/20261024_affiliate_product_staging.sql'
       - 'tests/test_affiliate_product_staging.php'
@@ -49,6 +53,9 @@ jobs:
       - name: PHP syntax
         run: |
           php -l includes/affiliate_product_staging.php
+          php -l includes/affiliate_staging_publisher.php
+          php -l admin/affiliate-review.php
+          php -l tests/test_affiliate_staging_publication.php
           php -l admin/integracoes-afiliados.php
           php -l tests/test_affiliate_product_staging.php
       - name: MySQL staging integration tests
@@ -57,3 +64,9 @@ jobs:
           TEST_DB_USER: cupons
           TEST_DB_PASSWORD: testpass
         run: php tests/test_affiliate_product_staging.php
+      - name: MySQL supervised publication tests
+        env:
+          TEST_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=cupons_test;charset=utf8mb4'
+          TEST_DB_USER: cupons
+          TEST_DB_PASSWORD: testpass
+        run: php tests/test_affiliate_staging_publication.php
