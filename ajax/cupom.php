@@ -1,71 +1,68 @@
 <?php
-// ajax/cupom.php — retorna HTML parcial com lista de cupons
+declare(strict_types=1);
+
+require_once __DIR__ . '/../includes/config.php';
 header('Content-Type: text/html; charset=utf-8');
 
-
-// Helpers de caminho
-$root = dirname(__DIR__);
-
-
-// Includes básicos
-@require_once $root . '/includes/config.php';
-@require_once $root . '/includes/database.php';
-@require_once $root . '/includes/security.php';
-@require_once $root . '/includes/functions.php';
-
-
-// Log simples
-function log_api($msg) {
-$file = dirname(__DIR__) . '/logs/api.log';
-if (!is_dir(dirname($file))) @mkdir(dirname($file), 0775, true);
-@file_put_contents($file, '['.date('c')."] CUPOM " . $msg . "\n", FILE_APPEND);
-}
-
-
-// Obter PDO de forma resiliente
-$pdo = $pdo ?? (function_exists('get_db') ? get_db() : (function_exists('db') ? db() : null));
-if (!$pdo) {
-// Tenta via constantes usuais
-if (defined('DB_DSN')) {
-$pdo = new PDO(DB_DSN, DB_USER ?? null, DB_PASS ?? null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-} elseif (defined('DB_HOST')) {
-$dsn = 'mysql:host=' . DB_HOST . ';dbname=' . (DB_NAME ?? '') . ';charset=utf8mb4';
-$pdo = new PDO($dsn, DB_USER ?? null, DB_PASS ?? null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-}
-}
-
-
-$q = trim($_GET['q'] ?? '');
-$loja = trim($_GET['loja'] ?? '');
-$page = max(1, (int)($_GET['page'] ?? 1));
+$q = trim((string)($_GET['q'] ?? ''));
+$loja = trim((string)($_GET['loja'] ?? ''));
+$page = max(1, min(10000, (int)($_GET['page'] ?? 1)));
 $perPage = max(5, min(50, (int)($_GET['per_page'] ?? 12)));
 $offset = ($page - 1) * $perPage;
-
-
-$where = [];
+$where = ['c.ativo = 1', 'l.ativo = 1', 'c.data_inicio <= CURDATE()', 'c.data_fim >= CURDATE()'];
 $params = [];
-if ($q !== '') { $where[] = '(c.codigo LIKE :q OR c.descricao LIKE :q)'; $params[':q'] = "%$q%"; }
-if ($loja !== '') { $where[] = '(l.slug = :loja OR l.nome LIKE :loja_like)'; $params[':loja'] = $loja; $params[':loja_like'] = "%$loja%"; }
-$wsql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
 
+if ($q !== '') {
+    $where[] = '(c.codigo LIKE :q_codigo OR c.descricao LIKE :q_descricao)';
+    $params[':q_codigo'] = '%' . $q . '%';
+    $params[':q_descricao'] = '%' . $q . '%';
+}
+if ($loja !== '') {
+    $where[] = '(l.slug = :loja_slug OR l.nome LIKE :loja_nome)';
+    $params[':loja_slug'] = $loja;
+    $params[':loja_nome'] = '%' . $loja . '%';
+}
 
-$sql = "SELECT c.*, l.nome AS loja_nome, l.slug AS loja_slug
-FROM cupons c
-JOIN lojas l ON l.id = c.loja_id
-$wsql
-ORDER BY c.valido_ate DESC
-LIMIT :limit OFFSET :offset";
-
+$sql = 'SELECT c.id, c.descricao, c.codigo, c.tipo, c.valor, c.data_fim, l.nome AS loja_nome
+    FROM cupons c JOIN lojas l ON l.id = c.loja_id
+    WHERE ' . implode(' AND ', $where) . '
+    ORDER BY c.data_fim ASC, c.id DESC LIMIT :limite OFFSET :deslocamento';
 
 try {
-$stmt = $pdo->prepare($sql);
-foreach ($params as $k => $v) $stmt->bindValue($k, $v);
-$stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
-$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-$stmt->execute();
-$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-log_api('lista de cupons OK (' . count($rows) . ' itens)');
-} catch (Throwable $e) {
-log_api('ERRO: ' . $e->getMessage());
-echo '<div class="alert alert-error">Erro ao carregar cupons.</div>';
+    $stmt = $pdo->prepare($sql);
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value, PDO::PARAM_STR);
+    }
+    $stmt->bindValue(':limite', $perPage, PDO::PARAM_INT);
+    $stmt->bindValue(':deslocamento', $offset, PDO::PARAM_INT);
+    $stmt->execute();
+    $cupons = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $exception) {
+    error_log('[ajax/cupom.php] ' . $exception->getMessage());
+    http_response_code(500);
+    exit('<div class="alert alert-danger">Não foi possível carregar os cupons.</div>');
+}
+
+$escape = static fn (mixed $value): string => htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+?>
+<div class="row row-cols-1 row-cols-md-2 g-4">
+<?php foreach ($cupons as $cupom):
+    $desconto = $cupom['tipo'] === 'percentual'
+        ? number_format((float)$cupom['valor'], 0, ',', '.') . '%'
+        : 'R$ ' . number_format((float)$cupom['valor'], 2, ',', '.');
+?>
+    <div class="col"><article class="card h-100 shadow-sm">
+        <div class="card-body d-flex flex-column">
+            <p class="text-muted small mb-2"><?= $escape($cupom['loja_nome']) ?></p>
+            <h2 class="h6"><?= $escape($cupom['descricao']) ?></h2>
+            <p class="text-success fw-bold"><?= $escape($desconto) ?> de desconto</p>
+            <p class="small">Código: <code><?= $escape($cupom['codigo']) ?></code></p>
+            <p class="text-muted small">Válido até <?= $escape(date('d/m/Y', strtotime((string)$cupom['data_fim']))) ?></p>
+            <a href="go.php?tipo=cupom&amp;id=<?= (int)$cupom['id'] ?>" class="btn btn-primary mt-auto" rel="nofollow sponsored">Pegue seu cupom</a>
+        </div>
+    </article></div>
+<?php endforeach; ?>
+<?php if ($cupons === []): ?>
+    <div class="col-12"><div class="alert alert-info">Nenhum cupom encontrado.</div></div>
+<?php endif; ?>
 </div>

@@ -1,16 +1,24 @@
-name: PHP item 01 validation
+name: PHP 8.3+ compatibility
 
 on:
   push:
     branches:
       - main
-      - feat/item-01-importacao-segura-20261024
   pull_request:
     branches: [main]
 
+concurrency:
+  group: php-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   php:
+    name: PHP ${{ matrix.php }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4']
     services:
       mysql:
         image: mysql:8.0
@@ -30,27 +38,25 @@ jobs:
       DB_PASS: testpass
     steps:
       - uses: actions/checkout@v4
-      - name: Install PHP 8.3
+      - name: Install PHP ${{ matrix.php }}
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
-          extensions: curl, dom, mbstring, pdo_mysql
+          php-version: ${{ matrix.php }}
+          extensions: curl, dom, fileinfo, gd, json, mbstring, openssl, pdo_mysql
           coverage: none
-      - name: Lint changed PHP entrypoints
+      - name: Check runtime requirements
+        run: php scripts/check_runtime.php
+      - name: Lint all PHP files
+        shell: bash
         run: |
-          php -l includes/offer_metadata_importer.php
-          php -l admin/importar.php
-          php -l go.php
-          php -l index.php
-          php -l tests/test_offer_importer.php
-          php -l includes/config.php
-          php -l includes/database.php
-          php -l includes/auth.php
-          php -l admin/login.php
-          php -l admin/lojas.php
-          php -l admin/includes/sidebar.php
-          php -l scripts/create_admin.php
-          php -l tests/test_clean_install.php
+          set -euo pipefail
+          status=0
+          while IFS= read -r -d '' file; do
+            php -l "$file" || status=1
+          done < <(find . -type f -name '*.php' -print0)
+          exit "$status"
+      - name: Runtime unit tests
+        run: php tests/test_runtime_requirements.php
       - name: Importer unit tests
         run: php tests/test_offer_importer.php
       - name: Clean install and storefront smoke test

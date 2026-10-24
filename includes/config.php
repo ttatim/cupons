@@ -1,8 +1,22 @@
 <?php
 /**
  * Configuração central do app
- * Compatível com PHP 8.1
+ * Requer PHP 8.3+
  */
+
+// Falhar cedo em ambientes incompatíveis, antes de abrir sessão ou conectar ao banco.
+require_once __DIR__ . '/runtime_requirements.php';
+try {
+    RuntimeRequirements::assertCompatible();
+} catch (RuntimeException $exception) {
+    error_log('[Runtime] ' . $exception->getMessage());
+    if (PHP_SAPI === 'cli') {
+        fwrite(STDERR, $exception->getMessage() . PHP_EOL);
+    } else {
+        http_response_code(503);
+    }
+    exit('Ambiente PHP incompatível. Verifique os requisitos do servidor.');
+}
 
 // ---- Sessão ----
 if (session_status() !== PHP_SESSION_ACTIVE) {
