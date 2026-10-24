@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/kiwify_integration.php';
 
 /**
  * Integração Hotmart (OAuth 2.0 + consulta somente leitura).
@@ -32,9 +33,9 @@ final class AffiliateIntegrations
             ],
             'kiwify' => [
                 'label' => 'Kiwify',
-                'state' => 'conector pendente; API oficial disponível',
-                'ready' => false,
-                'implemented' => false,
+                'state' => KiwifyIntegration::credentialsPresent() ? 'configurada (não verificada)' : 'aguardando credenciais',
+                'ready' => KiwifyIntegration::credentialsPresent(),
+                'implemented' => true,
             ],
             'monetizze' => [
                 'label' => 'Monetizze',
