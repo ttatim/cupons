@@ -104,13 +104,7 @@ final class AffiliateIntegrations
         if ($transactionStatus !== null && !in_array($transactionStatus, ['APPROVED', 'COMPLETE', 'REFUNDED', 'CHARGEBACK', 'PARTIALLY_REFUNDED'], true)) {
             throw new InvalidArgumentException('Filtro de status Hotmart inválido.');
         }
-        if ($transactionStatus !== null && !in_array($transactionStatus, ['APPROVED', 'COMPLETE', 'REFUNDED', 'CHARGEBACK', 'PARTIALLY_REFUNDED'], true)) {
-            throw new InvalidArgumentException('Filtro de status Hotmart inválido.');
-        }
         $params = ['max_results' => $maxResults];
-        if ($transactionStatus !== null) {
-            $params['transaction_status'] = $transactionStatus;
-        }
         if ($transactionStatus !== null) {
             $params['transaction_status'] = $transactionStatus;
         }
