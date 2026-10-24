@@ -88,7 +88,7 @@ final class AffiliateIntegrations
      * Sem filtros de status, a API retorna por padrão APPROVED e COMPLETE.
      * @return array{items:array,page_info:array}
      */
-    public function hotmartSalesCommissions(int $maxResults = 10): array
+    public function hotmartSalesCommissions(int $maxResults = 10, ?string $pageToken = null): array
     {
         if (!self::credentialsPresent()) {
             throw new RuntimeException('Configure as credenciais Hotmart no servidor.');
@@ -96,7 +96,16 @@ final class AffiliateIntegrations
         if ($maxResults < 1 || $maxResults > 50) {
             throw new InvalidArgumentException('Limite permitido: 1 a 50.');
         }
-        $query = http_build_query(['max_results' => $maxResults], '', '&', PHP_QUERY_RFC3986);
+        // Cursor opaco recebido da API: nunca inserir diretamente na URL nem em logs.
+        // Hotmart usa cursores base64/hex; rejeitar controles, separadores e entradas extensas.
+        if ($pageToken !== null && !preg_match('/\\A[A-Za-z0-9+\\/=_-]{1,1024}\\z/D', $pageToken)) {
+            throw new InvalidArgumentException('Cursor de paginação Hotmart inválido.');
+        }
+        $params = ['max_results' => $maxResults];
+        if ($pageToken !== null) {
+            $params['page_token'] = $pageToken;
+        }
+        $query = http_build_query($params, '', '&', PHP_QUERY_RFC3986);
         $data = $this->request('GET', 'https://developers.hotmart.com/payments/api/v1/sales/commissions?' . $query, [
             'Authorization: Bearer ' . $this->accessToken(),
             'Accept: application/json',
@@ -107,7 +116,17 @@ final class AffiliateIntegrations
         if (count($data['items']) > $maxResults) {
             throw new RuntimeException('Hotmart retornou mais transações que o limite solicitado.');
         }
-        return ['items' => $data['items'], 'page_info' => is_array($data['page_info'] ?? null) ? $data['page_info'] : []];
+        $pageInfo = is_array($data['page_info'] ?? null) ? $data['page_info'] : [];
+        $next = $pageInfo['next_page_token'] ?? null;
+        if ($next === '') {
+            $next = null;
+        }
+        if ($next !== null && (!is_string($next)
+            || !preg_match('/\\A[A-Za-z0-9+\\/=_-]{1,1024}\\z/D', $next))) {
+            throw new RuntimeException('Hotmart retornou cursor de paginação inválido.');
+        }
+        // Não repassar metadados desconhecidos ou identificadores da API ao painel.
+        return ['items' => $data['items'], 'page_info' => ['next_page_token' => $next]];
     }
 
     private function accessToken(): string
