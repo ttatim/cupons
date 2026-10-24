@@ -121,7 +121,7 @@ function h(string $value): string { return htmlspecialchars($value, ENT_QUOTES |
 <div class="col-md-4"><label class="form-label">Tipo</label><select class="form-select" name="tipo" id="tipo"><option value="produto" <?= $values['tipo'] === 'produto' ? 'selected' : '' ?>>Produto</option><option value="cupom" <?= $values['tipo'] === 'cupom' ? 'selected' : '' ?>>Cupom</option></select></div>
 <div class="col-md-8"><label class="form-label">Loja</label><select class="form-select" name="loja_id" required><option value="">Selecione</option><?php foreach ($lojas as $loja): ?><option value="<?= (int)$loja['id'] ?>" <?= (string)$loja['id'] === $values['loja_id'] ? 'selected' : '' ?>><?= h($loja['nome']) ?></option><?php endforeach; ?></select></div>
 <div class="col-12"><label class="form-label">URL para importar metadados</label><input type="url" class="form-control" name="url_origem" value="<?= h($values['url_origem']) ?>" placeholder="https://loja.com/produto" maxlength="2048"></div>
-<div class="col-12"><button type="submit" name="acao" value="preview" class="btn btn-outline-primary">Buscar informações da URL</button></div>
+<div class="col-12"><button type="submit" name="acao" value="preview" formnovalidate class="btn btn-outline-primary">Buscar informações da URL</button></div>
 <hr>
 <div class="col-12"><label class="form-label">Título</label><input type="text" class="form-control" name="nome" maxlength="255" required value="<?= h($values['nome']) ?>"></div>
 <div class="col-12"><label class="form-label">Descrição (até 1500 caracteres)</label><textarea class="form-control" name="descricao" maxlength="1500" rows="4" required><?= h($values['descricao']) ?></textarea></div>
