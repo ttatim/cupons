@@ -40,7 +40,6 @@ function hAffiliate(string $value): string
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
 <body>
-<?php include __DIR__ . '/includes/header.php'; ?>
 <div class="container-fluid">
     <div class="row">
         <?php include __DIR__ . '/includes/sidebar.php'; ?>
