@@ -1,5 +1,8 @@
 # Cupons (Pelando Clone)
 
+> **Instalação atualizada (24/10/2026):** consulte [docs/ETAPA-01.md](docs/ETAPA-01.md) antes de instalar. O provisionamento automático de usuários padrão e dados de demonstração foi desativado. Não utilize as instruções legadas de seed abaixo em instalações novas.
+
+
 Portal completo para divulgação de cupons de desconto e produtos de dropshipping, com área pública, painel administrativo, integrações com APIs de afiliados e coleta de métricas de desempenho.
 
 ---
@@ -68,7 +71,7 @@ Portal completo para divulgação de cupons de desconto e produtos de dropshippi
 
 ## Pré-requisitos
 
-1. PHP 8.1+ com extensões `pdo_mysql`, `openssl`, `curl`, `gd`, `json`, `mbstring`.
+1. PHP 8.3+ com extensões `pdo_mysql`, `openssl`, `curl`, `dom`, `gd`, `json`, `mbstring`.
 2. MySQL 5.7+ (ou MariaDB equivalente).
 3. Servidor HTTP (Apache com mod_rewrite, Nginx ou `php -S` para desenvolvimento).
 4. Composer não é obrigatório, mas recomendado caso deseje adicionar libs.
@@ -95,16 +98,11 @@ Portal completo para divulgação de cupons de desconto e produtos de dropshippi
    ```
 4. **Importar o schema**
    ```bash
-   mysql -u pelando -p pelando_clone < sql/database.sql
-   # Opcional: carregar dados de exemplo
-   mysql -u pelando -p pelando_clone < sql/sample-database.sql
+   php -r "require 'includes/config.php';" # inicializa esquema em banco vazio
    ```
 5. **Ajustar credenciais**
    - Edite `includes/config.php` e atualize `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS`.
-   - Configure a sessão segura (headers + cookies) e chame `criarUsuarioPadrao($pdo);` caso deseje criar o usuário padrão automaticamente (`ttatim` / `senha123`). Exemplo:
-     ```bash
-     php -r "require 'includes/config.php'; criarUsuarioPadrao($pdo); echo \"Usuario criado\\n\";"
-     ```
+   - Crie a conta inicial com o script CLI `scripts/create_admin.php`, fornecendo `ADMIN_USERNAME`, `ADMIN_EMAIL` e `ADMIN_PASSWORD` por variáveis de ambiente.
 6. **Permissões de escrita**
    ```bash
    chmod -R 775 assets/uploads logs
@@ -114,7 +112,7 @@ Portal completo para divulgação de cupons de desconto e produtos de dropshippi
    - Defina as colunas de configuração na tabela `configuracoes` (ver `admin/configuracoes.php`).
 8. **Acessar**
    - Público: `http://localhost:8000`
-   - Admin: `http://localhost:8000/admin` (login padrão descrito acima)
+   - Admin: `http://localhost:8000/admin` (conta criada explicitamente pelo administrador)
 
 ---
 
