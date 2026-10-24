@@ -21,6 +21,7 @@ $commissionPreview = null;
 $commissionAccountPreview = null;
 $commissionStageResult = null;
 $commissionStageCounts = null;
+$commissionReviewBreakdown = null;
 $commissionStageProgress = null;
 $commissionStageEnabled = trim((string) getenv('HOTMART_ACCOUNT_UCODE')) !== ''
     && strlen((string) getenv('HOTMART_COMMISSION_HASH_KEY')) >= 32;
@@ -64,6 +65,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['hotmart_commissions_page'] = $commissionPage;
             $_SESSION['hotmart_commissions_next'] = $commissionData['page_info']['next_page_token'];
             $commissionHasNext = $_SESSION['hotmart_commissions_next'] !== null;
+        } elseif ($action === 'hotmart_commissions_review_summary') {
+            // Consultar a fila exige a mesma autorização do registro; não chama a API.
+            $roleStmt = $pdo->prepare('SELECT nivel FROM usuarios WHERE id = :id AND ativo = 1');
+            $roleStmt->execute([':id' => (int) ($_SESSION['user_id'] ?? 0)]);
+            if ($roleStmt->fetchColumn() !== 'admin') {
+                throw new RuntimeException('Somente administradores podem consultar observações de comissões.');
+            }
+            $account = trim((string) getenv('HOTMART_ACCOUNT_UCODE'));
+            $hashKey = (string) getenv('HOTMART_COMMISSION_HASH_KEY');
+            $commissionStageCounts = HotmartCommissionStaging::counts($pdo, $account, $hashKey);
+            $commissionReviewBreakdown = HotmartCommissionStaging::reviewBreakdown($pdo, $account, $hashKey);
         } elseif ($action === 'hotmart_commissions_stage' || $action === 'hotmart_commissions_stage_next') {
             $roleStmt = $pdo->prepare('SELECT nivel FROM usuarios WHERE id = :id AND ativo = 1');
             $roleStmt->execute([':id' => (int) ($_SESSION['user_id'] ?? 0)]);
@@ -95,6 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $commissionData['page_info']['next_page_token'], $continuation, $cursor
             );
             $commissionStageCounts = HotmartCommissionStaging::counts($pdo, $account, $hashKey);
+            $commissionReviewBreakdown = HotmartCommissionStaging::reviewBreakdown($pdo, $account, $hashKey);
         } elseif ($action === 'kiwify_products') {
             $kiwifyPage = AffiliateImportPage::parse($_POST['kiwify_page'] ?? null);
             $kiwifyProducts = (new KiwifyIntegration())->listProducts($kiwifyPage, 10);
@@ -294,6 +307,30 @@ function hAffiliate(string $value): string
                         <p class="small text-muted mt-2">Não há próxima página disponível ou foi atingido o limite de 50 páginas.</p>
                     <?php endif; ?>
                 </div>
+                <hr>
+                <h3 class="h6">Fila de alertas para revisão humana</h3>
+                <p class="small text-muted">Contagens agrupadas por último status de alerta observado. Não mostra valores, compradores, códigos de transação ou saldo. Alertas não são resolvidos automaticamente.</p>
+                <form method="post">
+                    <input type="hidden" name="csrf_token" value="<?= hAffiliate($csrfToken) ?>">
+                    <input type="hidden" name="action" value="hotmart_commissions_review_summary">
+                    <button class="btn btn-outline-secondary" type="submit" <?= $commissionStageEnabled ? '' : 'disabled' ?>>Consultar alertas registrados (sem acessar API)</button>
+                </form>
+                <?php if ($commissionReviewBreakdown !== null && $commissionStageCounts !== null): ?>
+                    <div class="alert alert-secondary mt-3">
+                        <?= (int) $commissionStageCounts['groups_to_review'] ?> grupo(s) marcado(s) para revisão,
+                        entre <?= (int) $commissionStageCounts['groups_total'] ?> grupo(s) observados nesta conta.
+                    </div>
+                    <?php if ($commissionReviewBreakdown === []): ?>
+                        <p class="small">Nenhum alerta registrado para esta conta. Isso não confirma ausência de estornos na plataforma.</p>
+                    <?php else: ?>
+                        <div class="table-responsive"><table class="table table-sm">
+                            <thead><tr><th>Status observado</th><th>Grupos a revisar</th></tr></thead><tbody>
+                            <?php foreach ($commissionReviewBreakdown as $group): ?>
+                                <tr><td><?= hAffiliate($group['status']) ?></td><td><?= (int) $group['groups'] ?></td></tr>
+                            <?php endforeach; ?>
+                            </tbody></table></div>
+                    <?php endif; ?>
+                <?php endif; ?>
             </section>
             <section class="card mt-3">
                 <div class="card-body">

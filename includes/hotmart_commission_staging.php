@@ -109,7 +109,9 @@ final class HotmartCommissionStaging
         $sql = 'INSERT INTO hotmart_commission_staging
             (account_hash, transaction_hash, source, currency, amount_cents, commission_count, observed_status, review_required)
             VALUES (:account_hash, :transaction_hash, :source, :currency, :amount_cents, :commission_count, :observed_status, :review_required)
-            ON DUPLICATE KEY UPDATE amount_cents = VALUES(amount_cents), commission_count = VALUES(commission_count),
+            ON DUPLICATE KEY UPDATE
+            amount_cents = IF(review_required = 1 AND VALUES(review_required) = 0, amount_cents, VALUES(amount_cents)),
+            commission_count = IF(review_required = 1 AND VALUES(review_required) = 0, commission_count, VALUES(commission_count)),
             observed_status = IF(review_required = 1 AND VALUES(review_required) = 0, observed_status, VALUES(observed_status)),
             review_required = GREATEST(review_required, VALUES(review_required)), updated_at = CURRENT_TIMESTAMP';
         $pdo->beginTransaction();
@@ -135,6 +137,30 @@ final class HotmartCommissionStaging
             throw $exception;
         }
         return ['groups_staged' => count($normalized['rows']), 'commissions_matched' => $normalized['matched'], 'review_required' => $review === 1];
+    }
+
+    /**
+     * Fila agregada de alertas de reembolso/estorno da conta configurada.
+     * Somente status conhecidos e contagens; não retorna hashes, valores ou PII.
+     * Um alerta nunca é automaticamente marcado como resolvido.
+     *
+     * @return list<array{status:string,groups:int}>
+     */
+    public static function reviewBreakdown(PDO $pdo, string $ucode, string $key): array
+    {
+        $stmt = $pdo->prepare('SELECT observed_status, COUNT(*) AS groups_count
+            FROM hotmart_commission_staging
+            WHERE account_hash = :account_hash AND review_required = 1
+            GROUP BY observed_status ORDER BY observed_status');
+        $stmt->execute([':account_hash' => self::scope($ucode, $key)]);
+        $result = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $status = (string) ($row['observed_status'] ?? '');
+            if (self::validStatus($status)) {
+                $result[] = ['status' => $status, 'groups' => (int) $row['groups_count']];
+            }
+        }
+        return $result;
     }
 
     /** Somente contagens, sem hashes nem valores identificáveis de transação. */

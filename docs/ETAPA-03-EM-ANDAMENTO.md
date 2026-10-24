@@ -155,3 +155,13 @@
 - Não foi necessário alterar o esquema nesta subetapa. Para instalar do zero, aplique a migração `sql/updates/20261024_hotmart_commission_staging.sql` após o schema base, conforme instruções anteriores. A migração cria tabela vazia, sem dados reais.
 - Teste: `php tests/test_hotmart_commission_stage_pagination.php` (PHP 8.3/8.4 no CI), incluindo escopo de conta, status, cursor manipulado, repetição e limite. Os testes de staging MySQL existentes permanecem ativos.
 - **Pendências:** homologação com credenciais reais, conciliação de estornos/reembolsos, comprovação de titularidade da conta, isolamento por vendedor (item 10), política de retenção e confirmação da semântica dos status junto à Hotmart. Não utilizar como extrato contábil.
+
+
+## Complemento: fila de revisão de reembolsos e estornos Hotmart (24/10/2026)
+
+- O painel administrativo **Integração > Afiliados > Fila de alertas para revisão humana** permite consultar, sob autenticação administrativa e CSRF, apenas as **contagens agrupadas por status** dos registros sinalizados para revisão na conta Hotmart configurada. A consulta usa somente o banco local, sem chamar a API nem revelar UCODE, hash de conta, hash de transação, comprador, valor ou token.
+- Para consultar, configure `HOTMART_ACCOUNT_UCODE` e `HOTMART_COMMISSION_HASH_KEY` fora do repositório e aplique `sql/updates/20261024_hotmart_commission_staging.sql`. A função exige a tabela existente, mas **não requer migração adicional**.
+- Uma observação posterior filtrada como `APPROVED` ou `COMPLETE` **não substitui valor, quantidade nem status** de uma observação previamente sinalizada como `REFUNDED`, `CHARGEBACK` ou `PARTIALLY_REFUNDED`. Novas observações de risco atualizam o último status de risco, mantendo o alerta. Isso evita que páginas antigas desfaçam silenciosamente o registro de alerta.
+- Os grupos continuam idempotentes por conta/transação/papel/moeda. A fila mostra o **último status de alerta registrado**, não o histórico completo de eventos nem a situação financeira real da plataforma. Alertas não são baixados automaticamente e não há botão para marcar como conciliado.
+- **Sem saldos, ajustes monetários, pagamentos ou reconhecimento de receita.** O filtro de status da API não comprova ordem cronológica dos eventos. Homologação com credenciais reais, validação de titularidade, webhooks assinados, conciliação de reembolsos e isolamento por vendedor (item 10) continuam pendentes.
+- Teste automatizado: `php tests/test_hotmart_commission_staging.php`; com `TEST_DB_DSN` apontando estritamente para `cupons_test`, cobre regressão de status/valores, mudança de alerta, contagens agregadas e isolamento por conta. CI executa PHP 8.3 e 8.4 com MySQL 8.
