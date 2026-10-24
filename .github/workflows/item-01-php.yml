@@ -11,6 +11,23 @@ on:
 jobs:
   php:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testpass
+          MYSQL_DATABASE: cupons_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -ptestpass"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      APP_ENV: testing
+      DB_HOST: 127.0.0.1
+      DB_NAME: cupons_test
+      DB_USER: root
+      DB_PASS: testpass
     steps:
       - uses: actions/checkout@v4
       - name: Install PHP 8.3
@@ -33,5 +50,14 @@ jobs:
           php -l admin/lojas.php
           php -l admin/includes/sidebar.php
           php -l scripts/create_admin.php
+          php -l tests/test_clean_install.php
       - name: Importer unit tests
         run: php tests/test_offer_importer.php
+      - name: Clean install and storefront smoke test
+        run: php tests/test_clean_install.php
+      - name: Provision initial administrator through CLI
+        env:
+          ADMIN_USERNAME: admin_ci
+          ADMIN_EMAIL: ci@example.com
+          ADMIN_PASSWORD: CI-testing-only-password-12345
+        run: php scripts/create_admin.php
