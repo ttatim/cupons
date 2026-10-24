@@ -111,6 +111,32 @@ checkStage(HotmartCommissionStaging::observationBreakdown($pdo, $other, $key) ==
 ], 'histórico de outra conta isolado');
 checkStage((int) $pdo->query('SELECT COUNT(*) FROM hotmart_commission_observations')->fetchColumn() === 5,
     'idempotência e isolamento persistidos');
+// Evidências de revisão: a mesma combinação de transação/origem/moeda
+// possui status positivo e de risco, dois riscos e dois valores APPROVED.
+// Não inferir ordem cronológica ou saldo a partir dessas contagens.
+$beforeEvidence = [
+    (int) $pdo->query('SELECT COUNT(*) FROM hotmart_commission_staging')->fetchColumn(),
+    (int) $pdo->query('SELECT COUNT(*) FROM hotmart_commission_observations')->fetchColumn(),
+];
+checkStage(HotmartCommissionStaging::evidenceInventory($pdo, $ucode, $key) === [
+    'positive_and_risk_groups' => 1,
+    'multiple_risk_status_groups' => 1,
+    'amount_variation_groups' => 1,
+], 'evidências para revisão agrupadas por transação, origem e moeda');
+checkStage(HotmartCommissionStaging::evidenceInventory($pdo, $other, $key) === [
+    'positive_and_risk_groups' => 0,
+    'multiple_risk_status_groups' => 0,
+    'amount_variation_groups' => 0,
+], 'evidências isoladas por conta');
+checkStage($beforeEvidence === [
+    (int) $pdo->query('SELECT COUNT(*) FROM hotmart_commission_staging')->fetchColumn(),
+    (int) $pdo->query('SELECT COUNT(*) FROM hotmart_commission_observations')->fetchColumn(),
+], 'evidências não modificam staging nem histórico');
+try {
+    HotmartCommissionObservationHistory::evidenceInventory($pdo, 'conta-invalida');
+    throw new RuntimeException('Aceitou hash de conta inválido em evidências');
+} catch (InvalidArgumentException $expected) {}
+
 // Inventário de retenção: consulta somente leitura, faixas cumulativas e
 // isolamento por conta. Ajustes de datas ocorrem APENAS em cupons_test.
 $accountHash = $n['account_hash'];
