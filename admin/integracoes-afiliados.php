@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } catch (Throwable $exception) {
         $error = $exception instanceof PDOException
-            ? 'Não foi possível salvar o catálogo. Confira a migração affiliate_product_staging e as permissões do banco.'
+            ? 'Não foi possível salvar o catálogo. Confira as migrações affiliate_product_staging e affiliate_product_review e as permissões do banco.'
             : $exception->getMessage();
     }
 }
