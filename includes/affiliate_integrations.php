@@ -88,7 +88,7 @@ final class AffiliateIntegrations
      * Sem filtros de status, a API retorna por padrão APPROVED e COMPLETE.
      * @return array{items:array,page_info:array}
      */
-    public function hotmartSalesCommissions(int $maxResults = 10, ?string $pageToken = null): array
+    public function hotmartSalesCommissions(int $maxResults = 10, ?string $pageToken = null, ?string $transactionStatus = null): array
     {
         if (!self::credentialsPresent()) {
             throw new RuntimeException('Configure as credenciais Hotmart no servidor.');
@@ -101,7 +101,13 @@ final class AffiliateIntegrations
         if ($pageToken !== null && !preg_match('/\\A[A-Za-z0-9+\\/=_-]{1,1024}\\z/D', $pageToken)) {
             throw new InvalidArgumentException('Cursor de paginação Hotmart inválido.');
         }
+        if ($transactionStatus !== null && !in_array($transactionStatus, ['APPROVED', 'COMPLETE', 'REFUNDED', 'CHARGEBACK', 'PARTIALLY_REFUNDED'], true)) {
+            throw new InvalidArgumentException('Filtro de status Hotmart inválido.');
+        }
         $params = ['max_results' => $maxResults];
+        if ($transactionStatus !== null) {
+            $params['transaction_status'] = $transactionStatus;
+        }
         if ($pageToken !== null) {
             $params['page_token'] = $pageToken;
         }
