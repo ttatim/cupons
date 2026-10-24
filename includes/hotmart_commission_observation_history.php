@@ -88,6 +88,57 @@ final class HotmartCommissionObservationHistory
     }
 
     /**
+     * Indicadores de observações que exigem análise humana antes de conciliar.
+     * Cada grupo é conta + transação HMAC + origem + moeda.
+     * Status são filtros consultados, NÃO eventos em ordem temporal comprovada.
+     * @return array{positive_and_risk_groups:int,multiple_risk_status_groups:int,amount_variation_groups:int}
+     */
+    public static function evidenceInventory(PDO $pdo, string $accountHash): array
+    {
+        if (!preg_match('/\A[a-f0-9]{64}\z/D', $accountHash)) {
+            throw new InvalidArgumentException('Escopo de conta inválido.');
+        }
+
+        $statement = $pdo->prepare("SELECT
+                COALESCE(SUM(has_positive = 1 AND has_risk = 1), 0) AS positive_and_risk_groups,
+                COALESCE(SUM(risk_statuses > 1), 0) AS multiple_risk_status_groups
+            FROM (
+                SELECT
+                    MAX(observed_status IN ('APPROVED', 'COMPLETE')) AS has_positive,
+                    MAX(observed_status IN ('REFUNDED', 'CHARGEBACK', 'PARTIALLY_REFUNDED')) AS has_risk,
+                    COUNT(DISTINCT CASE WHEN observed_status IN
+                        ('REFUNDED', 'CHARGEBACK', 'PARTIALLY_REFUNDED')
+                        THEN observed_status ELSE NULL END) AS risk_statuses
+                FROM hotmart_commission_observations
+                WHERE account_hash = :account_hash
+                GROUP BY transaction_hash, source, currency
+            ) AS grouped_observations");
+        $statement->execute([':account_hash' => $accountHash]);
+        $counts = $statement->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        // Uma mudança de valor/quantidade dentro do MESMO status pode indicar
+        // retificação ou dados divergentes. Contar cada grupo apenas uma vez.
+        $statement = $pdo->prepare('SELECT COUNT(*) FROM (
+                SELECT transaction_hash, source, currency FROM (
+                    SELECT transaction_hash, source, currency
+                    FROM hotmart_commission_observations
+                    WHERE account_hash = :account_hash
+                    GROUP BY transaction_hash, source, currency, observed_status
+                    HAVING MIN(amount_cents) <> MAX(amount_cents)
+                        OR MIN(commission_count) <> MAX(commission_count)
+                ) AS varied_status
+                GROUP BY transaction_hash, source, currency
+            ) AS varied_groups');
+        $statement->execute([':account_hash' => $accountHash]);
+
+        return [
+            'positive_and_risk_groups' => (int) ($counts['positive_and_risk_groups'] ?? 0),
+            'multiple_risk_status_groups' => (int) ($counts['multiple_risk_status_groups'] ?? 0),
+            'amount_variation_groups' => (int) $statement->fetchColumn(),
+        ];
+    }
+
+    /**
      * Diagnóstico de integridade local, somente leitura, sem transações ou PII.
      * Detecta inconsistências entre staging e histórico; não valida titularidade,
      * ordem de eventos, liquidação nem saldo da Hotmart.
