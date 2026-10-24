@@ -31,8 +31,8 @@ Portal completo para divulgação de cupons de desconto e produtos de dropshippi
 
 ## Tecnologias utilizadas
 
-- **Backend:** PHP 8+, PDO/MySQL, sessões nativas, cURL, GD (para manipulação de imagens).
-- **Banco:** MySQL 5.7+/8.0 (scripts em `sql/database.sql` e `sql/sample-database.sql`).
+- **Backend:** PHP 8.3+ (validado em CI também com 8.4), PDO/MySQL, sessões nativas, cURL, GD (para manipulação de imagens).
+- **Banco:** MySQL 8.0+ (validado em CI); MariaDB compatível requer homologação específica. Instalação limpa usa criação de esquema pelo bootstrap, sem importar dados de demonstração.
 - **Frontend:** HTML5/CSS3 (Bootstrap-like), JavaScript vanilla (`assets/js/*.js`), Chart.js (carregado via bundle local), componentes responsivos personalizados (`assets/css/`).
 - **Infraestrutura sugerida:** Apache/Nginx com suporte a `.htaccess`, PHP-FPM ou PHP embutido para desenvolvimento.
 
@@ -71,8 +71,8 @@ Portal completo para divulgação de cupons de desconto e produtos de dropshippi
 
 ## Pré-requisitos
 
-1. PHP 8.3+ com extensões `pdo_mysql`, `openssl`, `curl`, `dom`, `gd`, `json`, `mbstring`.
-2. MySQL 5.7+ (ou MariaDB equivalente).
+1. PHP 8.3+ com extensões obrigatórias `pdo_mysql`, `openssl`, `curl`, `dom`, `fileinfo`, `json`, `mbstring`; `gd` é necessária para uploads legados. Verifique com `php scripts/check_runtime.php` e consulte `docs/ETAPA-02.md`.
+2. MySQL 8.0+; MariaDB equivalente ainda precisa de homologação.
 3. Servidor HTTP (Apache com mod_rewrite, Nginx ou `php -S` para desenvolvimento).
 4. Composer não é obrigatório, mas recomendado caso deseje adicionar libs.
 
