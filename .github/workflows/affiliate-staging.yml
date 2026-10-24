@@ -4,17 +4,21 @@ on:
   pull_request:
     paths:
       - 'includes/affiliate_product_staging.php'
+      - 'includes/affiliate_import_page.php'
       - 'admin/integracoes-afiliados.php'
       - 'sql/updates/20261024_affiliate_product_staging.sql'
       - 'tests/test_affiliate_product_staging.php'
+      - 'tests/test_affiliate_import_page.php'
       - '.github/workflows/affiliate-staging.yml'
   push:
     branches: [main]
     paths:
       - 'includes/affiliate_product_staging.php'
+      - 'includes/affiliate_import_page.php'
       - 'admin/integracoes-afiliados.php'
       - 'sql/updates/20261024_affiliate_product_staging.sql'
       - 'tests/test_affiliate_product_staging.php'
+      - 'tests/test_affiliate_import_page.php'
       - '.github/workflows/affiliate-staging.yml'
 
 jobs:
@@ -49,8 +53,12 @@ jobs:
       - name: PHP syntax
         run: |
           php -l includes/affiliate_product_staging.php
+          php -l includes/affiliate_import_page.php
           php -l admin/integracoes-afiliados.php
           php -l tests/test_affiliate_product_staging.php
+          php -l tests/test_affiliate_import_page.php
+      - name: Validate manual pagination
+        run: php tests/test_affiliate_import_page.php
       - name: MySQL staging integration tests
         env:
           TEST_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=cupons_test;charset=utf8mb4'
