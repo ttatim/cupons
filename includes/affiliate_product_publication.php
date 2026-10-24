@@ -24,7 +24,7 @@ final class AffiliateProductPublication
             'original_price' => $row['review_original_price'] ?? '',
             'checkout_url' => $row['review_checkout_url'] ?? '',
             'image_url' => $row['review_image_url'] ?? '',
-            'store_id' => $row['review_store_id'] === null ? '' : (string) $row['review_store_id'],
+            'store_id' => ($row['review_store_id'] ?? null) === null ? '' : (string) $row['review_store_id'],
         ]);
         if ($fields['description'] === null || mb_strlen($fields['description'], 'UTF-8') < 20
             || $fields['price'] === null || $fields['checkout_url'] === null
