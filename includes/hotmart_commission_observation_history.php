@@ -1,0 +1,62 @@
+<?php
+declare(strict_types=1);
+
+/**
+ * Histórico mínimo e imutável das observações importadas da Hotmart.
+ * O horário é da coleta local; não representa a data do evento na Hotmart.
+ * Não constitui extrato, conciliação, saldo nem prova de titularidade.
+ */
+final class HotmartCommissionObservationHistory
+{
+    /**
+     * Deve ser chamado dentro da mesma transação PDO do upsert de staging.
+     * Reimportar a mesma observação não cria um segundo evento.
+     * @param list<array{transaction_hash:string,source:string,currency:string,amount_cents:int,commission_count:int}> $rows
+     */
+    public static function record(PDO $pdo, string $accountHash, array $rows, string $key, string $status): int
+    {
+        $statement = $pdo->prepare('INSERT INTO hotmart_commission_observations
+            (account_hash, transaction_hash, source, currency, observed_status, amount_cents, commission_count, observation_hash)
+            VALUES (:account_hash, :transaction_hash, :source, :currency, :observed_status, :amount_cents, :commission_count, :observation_hash)
+            ON DUPLICATE KEY UPDATE observation_hash = observation_hash');
+        $created = 0;
+        foreach ($rows as $row) {
+            $fingerprint = hash_hmac('sha256', json_encode([
+                $accountHash, $row['transaction_hash'], $row['source'], $row['currency'],
+                $status, $row['amount_cents'], $row['commission_count'],
+            ], JSON_THROW_ON_ERROR), $key);
+            $statement->execute([
+                ':account_hash' => $accountHash,
+                ':transaction_hash' => $row['transaction_hash'],
+                ':source' => $row['source'],
+                ':currency' => $row['currency'],
+                ':observed_status' => $status,
+                ':amount_cents' => $row['amount_cents'],
+                ':commission_count' => $row['commission_count'],
+                ':observation_hash' => $fingerprint,
+            ]);
+            $created += $statement->rowCount() === 1 ? 1 : 0;
+        }
+        return $created;
+    }
+
+    /**
+     * Apenas contagens por status; não retorna hashes, valores ou identificadores.
+     * @return list<array{status:string,observations:int}>
+     */
+    public static function breakdown(PDO $pdo, string $accountHash): array
+    {
+        $statement = $pdo->prepare('SELECT observed_status, COUNT(*) AS observations_count
+            FROM hotmart_commission_observations WHERE account_hash = :account_hash
+            GROUP BY observed_status ORDER BY observed_status');
+        $statement->execute([':account_hash' => $accountHash]);
+        $result = [];
+        while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
+            $status = (string) ($row['observed_status'] ?? '');
+            if (in_array($status, ['APPROVED', 'COMPLETE', 'REFUNDED', 'CHARGEBACK', 'PARTIALLY_REFUNDED'], true)) {
+                $result[] = ['status' => $status, 'observations' => (int) $row['observations_count']];
+            }
+        }
+        return $result;
+    }
+}
