@@ -13,7 +13,8 @@ $page_sections = [
     'cupons-novo.php' => 'conteudo',
     'cupons-editar.php' => 'conteudo',
     
-    'produtos.php' => 'conteudo', 
+    'produtos.php' => 'conteudo',
+    'importar.php' => 'conteudo', 
     'produtos-novo.php' => 'conteudo',
     'produtos-editar.php' => 'conteudo',
     
@@ -141,6 +142,7 @@ try {
                                 <?php endif; ?>
                             </a>
                         </li>
+                        <li class="nav-item"><a class="nav-link <?= $current_page === 'importar.php' ? 'active' : '' ?>" href="importar.php"><i class="bi bi-cloud-download me-2"></i>Importar oferta</a></li>
                         <li class="nav-item">
                             <a class="nav-link <?= $current_page === 'lojas.php' ? 'active' : '' ?>" href="lojas.php">
                                 <i class="bi bi-shop me-2"></i>
