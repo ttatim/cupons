@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/affiliate_integrations.php';
 require_once __DIR__ . '/../includes/affiliate_product_staging.php';
+require_once __DIR__ . '/../includes/affiliate_import_page.php';
 
 if (!isLoggedIn()) {
     header('Location: login.php');
@@ -14,6 +15,7 @@ $csrfToken = Security::generateCSRFToken();
 $summary = null;
 $kiwifyProducts = null;
 $stagingResult = null;
+$kiwifyPage = 1;
 $stagedProducts = null;
 $monetizzeChecked = false;
 $error = null;
@@ -26,10 +28,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'hotmart_summary') {
             $summary = (new AffiliateIntegrations())->hotmartSalesSummary(10);
         } elseif ($action === 'kiwify_products') {
-            $kiwifyProducts = (new KiwifyIntegration())->listProducts(1, 10);
+            $kiwifyPage = AffiliateImportPage::parse($_POST['kiwify_page'] ?? null);
+            $kiwifyProducts = (new KiwifyIntegration())->listProducts($kiwifyPage, 10);
         } elseif ($action === 'kiwify_stage') {
-            $kiwifyProducts = (new KiwifyIntegration())->listProducts(1, 10);
+            $kiwifyPage = AffiliateImportPage::parse($_POST['kiwify_page'] ?? null);
+            $kiwifyProducts = (new KiwifyIntegration())->listProducts($kiwifyPage, 10);
             $stagingResult = AffiliateProductStaging::stageKiwify($pdo, trim((string) getenv('KIWIFY_ACCOUNT_ID')), $kiwifyProducts['data']);
+            $stagedProducts = AffiliateProductStaging::listKiwify($pdo, trim((string) getenv('KIWIFY_ACCOUNT_ID')));
+        } elseif ($action === 'kiwify_review') {
             $stagedProducts = AffiliateProductStaging::listKiwify($pdo, trim((string) getenv('KIWIFY_ACCOUNT_ID')));
         } elseif ($action === 'monetizze_check') {
             $monetizzeChecked = (new MonetizzeIntegration())->checkConnection();
@@ -106,20 +112,32 @@ function hAffiliate(string $value): string
             <section class="card mt-3">
                 <div class="card-body">
                     <h2 class="h5">Kiwify — Produtos disponíveis</h2>
-                    <p>Consulta somente leitura à primeira página (até 10 produtos). Não publica ofertas, não modifica preços e não importa compradores.</p>
+                    <p>Consulta paginada somente leitura (10 produtos por ação, páginas 1 a 1000). Não publica ofertas, não modifica preços e não importa compradores.</p>
                     <form method="post">
                         <input type="hidden" name="csrf_token" value="<?= hAffiliate($csrfToken) ?>">
                         <input type="hidden" name="action" value="kiwify_products">
+                        <label class="form-label" for="kiwify_page_consulta">Página da API</label>
+                        <input class="form-control mb-2" id="kiwify_page_consulta" type="number" name="kiwify_page" min="1" max="1000" value="<?= (int) $kiwifyPage ?>" required>
                         <button class="btn btn-primary" type="submit" <?= $statuses['kiwify']['ready'] ? '' : 'disabled' ?>>Consultar produtos</button>
                     </form>
                     <form method="post" class="mt-2">
                         <input type="hidden" name="csrf_token" value="<?= hAffiliate($csrfToken) ?>">
                         <input type="hidden" name="action" value="kiwify_stage">
+                        <label class="form-label" for="kiwify_page_importacao">Página a importar</label>
+                        <input class="form-control mb-2" id="kiwify_page_importacao" type="number" name="kiwify_page" min="1" max="1000" value="<?= (int) $kiwifyPage ?>" required>
                         <button class="btn btn-outline-primary" type="submit" <?= $statuses['kiwify']['ready'] ? '' : 'disabled' ?>>Importar 10 produtos para revisão</button>
                     </form>
-                    <p class="small text-muted mt-2">Importa somente ID, nome, status e moeda para uma tabela isolada por conta. Não publica ofertas, preços, imagens, checkout ou dados de compradores. Execute a migração SQL antes.</p>
+                    <p class="small text-muted mt-2">Importa somente ID, nome, status e moeda para uma tabela isolada por conta. A seleção da página permite continuar a revisão do catálogo sem importar dados de compradores. Não publica ofertas, preços, imagens ou checkout. Execute a migração SQL antes.</p>
+                    <form method="post" class="mt-2">
+                        <input type="hidden" name="csrf_token" value="<?= hAffiliate($csrfToken) ?>">
+                        <input type="hidden" name="action" value="kiwify_review">
+                        <button class="btn btn-outline-secondary" type="submit" <?= $statuses['kiwify']['ready'] ? '' : 'disabled' ?>>Ver catálogo em revisão (até 20 registros)</button>
+                    </form>
                     <?php if ($stagingResult !== null): ?>
-                        <div class="alert alert-info mt-3">Catálogo em revisão: <?= (int) $stagingResult['processed'] ?> registro(s) processado(s), <?= (int) $stagingResult['rejected'] ?> rejeitado(s). Nenhuma oferta foi publicada.</div>
+                        <div class="alert alert-info mt-3">Página <?= (int) $kiwifyPage ?> importada: <?= (int) $stagingResult['processed'] ?> registro(s) processado(s), <?= (int) $stagingResult['rejected'] ?> rejeitado(s). Nenhuma oferta foi publicada.</div>
+                    <?php endif; ?>
+                    <?php if ($stagedProducts !== null): ?>
+                        <h3 class="h6 mt-3">Registros em revisão (até 20 mais recentes)</h3>
                         <div class="table-responsive"><table class="table table-sm">
                             <thead><tr><th>ID externo</th><th>Produto</th><th>Status</th><th>Moeda</th></tr></thead><tbody>
                             <?php foreach ($stagedProducts ?? [] as $item): ?>
@@ -128,7 +146,7 @@ function hAffiliate(string $value): string
                             </tbody></table></div>
                     <?php endif; ?>
                     <?php if ($kiwifyProducts !== null): ?>
-                        <div class="alert alert-success mt-3">Consulta concluída: <?= count($kiwifyProducts['data']) ?> produto(s) nesta página.</div>
+                        <div class="alert alert-success mt-3">Página <?= (int) $kiwifyPage ?>: consulta concluída com <?= count($kiwifyProducts['data']) ?> produto(s). Nenhuma oferta foi publicada.</div>
                         <div class="table-responsive"><table class="table table-sm">
                             <thead><tr><th>Produto</th><th>Status</th><th>Moeda</th></tr></thead><tbody>
                             <?php foreach ($kiwifyProducts['data'] as $row):
