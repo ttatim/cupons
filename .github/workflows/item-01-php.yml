@@ -73,6 +73,8 @@ jobs:
         run: php tests/test_kiwify_integration.php
       - name: Monetizze authentication unit tests
         run: php tests/test_monetizze_integration.php
+      - name: Monetizze webhook review unit tests
+        run: php tests/test_monetizze_webhook_review.php
       - name: Clean install and storefront smoke test
         run: php tests/test_clean_install.php
       - name: Provision initial administrator through CLI
