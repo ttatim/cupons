@@ -64,6 +64,7 @@ final class MonetizzeWebhookReview
                 $result['needs_review']++;
             }
         }
+        $result['unique'] = count($seen);
         return $result;
     }
 }
