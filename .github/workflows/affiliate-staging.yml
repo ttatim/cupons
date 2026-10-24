@@ -16,6 +16,10 @@ on:
     branches: [main]
     paths:
       - 'includes/affiliate_product_staging.php'
+      - 'includes/affiliate_staging_publisher.php'
+      - 'admin/affiliate-review.php'
+      - 'sql/updates/20261024_affiliate_staging_publication.sql'
+      - 'tests/test_affiliate_staging_publication.php'
       - 'admin/integracoes-afiliados.php'
       - 'sql/updates/20261024_affiliate_product_staging.sql'
       - 'tests/test_affiliate_product_staging.php'
