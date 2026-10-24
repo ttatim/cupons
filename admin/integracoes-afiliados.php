@@ -7,6 +7,7 @@ require_once __DIR__ . '/../includes/affiliate_product_staging.php';
 require_once __DIR__ . '/../includes/affiliate_import_page.php';
 require_once __DIR__ . '/../includes/affiliate_product_review.php';
 require_once __DIR__ . '/../includes/affiliate_product_publication.php';
+require_once __DIR__ . '/../includes/hotmart_commission_staging.php';
 
 if (!isLoggedIn()) {
     header('Location: login.php');
@@ -17,6 +18,10 @@ $csrfToken = Security::generateCSRFToken();
 $summary = null;
 $commissionPreview = null;
 $commissionAccountPreview = null;
+$commissionStageResult = null;
+$commissionStageCounts = null;
+$commissionStageEnabled = trim((string) getenv('HOTMART_ACCOUNT_UCODE')) !== ''
+    && strlen((string) getenv('HOTMART_COMMISSION_HASH_KEY')) >= 32;
 $hotmartAccountUcode = trim((string) getenv('HOTMART_ACCOUNT_UCODE'));
 $commissionPage = null;
 $commissionHasNext = false;
@@ -57,6 +62,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['hotmart_commissions_page'] = $commissionPage;
             $_SESSION['hotmart_commissions_next'] = $commissionData['page_info']['next_page_token'];
             $commissionHasNext = $_SESSION['hotmart_commissions_next'] !== null;
+        } elseif ($action === 'hotmart_commissions_stage') {
+            $roleStmt = $pdo->prepare('SELECT nivel FROM usuarios WHERE id = :id AND ativo = 1');
+            $roleStmt->execute([':id' => (int) ($_SESSION['user_id'] ?? 0)]);
+            if ($roleStmt->fetchColumn() !== 'admin') {
+                throw new RuntimeException('Somente administradores podem registrar observações de comissões.');
+            }
+            $status = $_POST['commission_status'] ?? null;
+            if (!is_string($status) || !HotmartCommissionStaging::validStatus($status)) {
+                throw new InvalidArgumentException('Status de comissão inválido.');
+            }
+            $account = trim((string) getenv('HOTMART_ACCOUNT_UCODE'));
+            $hashKey = (string) getenv('HOTMART_COMMISSION_HASH_KEY');
+            $commissionData = (new AffiliateIntegrations())->hotmartSalesCommissions(10, null, $status);
+            $commissionStageResult = HotmartCommissionStaging::stage(
+                $pdo, $account, $hashKey, $commissionData['items'], $status
+            );
+            $commissionStageCounts = HotmartCommissionStaging::counts($pdo, $account, $hashKey);
         } elseif ($action === 'kiwify_products') {
             $kiwifyPage = AffiliateImportPage::parse($_POST['kiwify_page'] ?? null);
             $kiwifyProducts = (new KiwifyIntegration())->listProducts($kiwifyPage, 10);
@@ -209,6 +231,41 @@ function hAffiliate(string $value): string
                         <?php else: ?>
                             <p class="small text-muted mt-2">A API não informou uma próxima página.</p>
                         <?php endif; ?>
+                    <?php endif; ?>
+                </div>
+            </section>
+            <section class="card mt-3">
+                <div class="card-body">
+                    <h2 class="h5">Hotmart — Registrar observações para revisão</h2>
+                    <p class="small text-warning-emphasis">Ação manual restrita a administradores: consulta somente a primeira página (até 10 transações) do status selecionado, grava parcelas coincidentes com o UCODE configurado e marca reembolsos/estornos para revisão. Não representa saldo, liquidação, conciliação ou confirmação de titularidade. Não registra compradores nem códigos de transação em claro.</p>
+                    <form method="post" class="row g-2 align-items-end">
+                        <input type="hidden" name="csrf_token" value="<?= hAffiliate($csrfToken) ?>">
+                        <input type="hidden" name="action" value="hotmart_commissions_stage">
+                        <div class="col-sm-5">
+                            <label for="commission_status" class="form-label">Status a consultar</label>
+                            <select id="commission_status" name="commission_status" class="form-select">
+                                <option value="APPROVED">APPROVED</option>
+                                <option value="COMPLETE">COMPLETE</option>
+                                <option value="REFUNDED">REFUNDED</option>
+                                <option value="CHARGEBACK">CHARGEBACK</option>
+                                <option value="PARTIALLY_REFUNDED">PARTIALLY_REFUNDED</option>
+                            </select>
+                        </div>
+                        <div class="col-sm-7">
+                            <button class="btn btn-outline-warning" type="submit" <?= ($commissionStageEnabled && $statuses['hotmart']['ready']) ? '' : 'disabled' ?>>Registrar observações da primeira página</button>
+                        </div>
+                    </form>
+                    <?php if (!$commissionStageEnabled): ?>
+                        <p class="small text-muted mt-2">Para habilitar, configure HOTMART_ACCOUNT_UCODE e HOTMART_COMMISSION_HASH_KEY (mínimo 32 caracteres aleatórios) fora do repositório e aplique a migração da tabela.</p>
+                    <?php endif; ?>
+                    <?php if ($commissionStageResult !== null): ?>
+                        <div class="alert alert-info mt-3">
+                            <?= (int) $commissionStageResult['commissions_matched'] ?> parcela(s) coincidente(s), em
+                            <?= (int) $commissionStageResult['groups_staged'] ?> grupo(s) de observação.
+                            <?= $commissionStageResult['review_required'] ? 'Status requer revisão humana.' : 'Sem comprovação de liquidação.' ?>
+                            Total armazenado nesta conta: <?= (int) $commissionStageCounts['groups_total'] ?> grupo(s);
+                            <?= (int) $commissionStageCounts['groups_to_review'] ?> pendente(s) de revisão.
+                        </div>
                     <?php endif; ?>
                 </div>
             </section>
