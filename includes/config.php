@@ -57,20 +57,5 @@ if (class_exists('Database')) {
 // ---- Funções utilitárias do projeto podem depender de $pdo ----
 // require_once __DIR__ . '/functions.php';
 
-// ---- Usuário padrão opcional (apenas em dev) ----
-if (!function_exists('criarUsuarioPadrao')) {
-    function criarUsuarioPadrao(PDO $pdo) {
-        $username = 'ttatim';
-        $password = password_hash('senha123', PASSWORD_DEFAULT);
-        $stmt = $pdo->prepare("SELECT id FROM usuarios WHERE username = ?");
-        $stmt->execute([$username]);
-        if (!$stmt->fetch()) {
-            $stmt = $pdo->prepare("INSERT INTO usuarios (username, password, email) VALUES (?, ?, ?)");
-            $stmt->execute([$username, $password, 'admin@ttatim.com']);
-        }
-    }
-}
-
-if (ENVIRONMENT === 'development') {
-    try { criarUsuarioPadrao($pdo); } catch (Throwable $t) { error_log("[seed] ".$t->getMessage()); }
-}
+// Usuários administrativos devem ser criados explicitamente via scripts/create_admin.php.
+// Nunca provisionar credenciais padrão em uma requisição web.
