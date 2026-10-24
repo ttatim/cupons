@@ -41,7 +41,9 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS produtos (
     link_afiliado TEXT NOT NULL, imagens JSON, ativo BOOLEAN NOT NULL DEFAULT TRUE
 ) ENGINE=InnoDB');
 $pdo->exec((string) file_get_contents(__DIR__ . '/../sql/updates/20261024_affiliate_product_staging.sql'));
-$pdo->exec((string) file_get_contents(__DIR__ . '/../sql/updates/20261024_affiliate_staging_publication.sql'));
+if (!$pdo->query("SHOW COLUMNS FROM affiliate_product_staging LIKE 'published_product_id'")->fetch(PDO::FETCH_ASSOC)) {
+    $pdo->exec((string) file_get_contents(__DIR__ . '/../sql/updates/20261024_affiliate_staging_publication.sql'));
+}
 $pdo->exec('DELETE FROM affiliate_product_staging');
 $pdo->exec('DELETE FROM produtos');
 $pdo->exec('DELETE FROM lojas');
