@@ -12,7 +12,7 @@ foreach (['HOTMART_CLIENT_ID', 'HOTMART_CLIENT_SECRET', 'HOTMART_BASIC_TOKEN'] a
     putenv($key);
 }
 checkAffiliate(!AffiliateIntegrations::credentialsPresent(), 'sem credenciais deve estar desabilitado');
-checkAffiliate(AffiliateIntegrations::status()['kiwify']['implemented'] === false, 'Kiwify não deve ser anunciado como pronto');
+checkAffiliate(AffiliateIntegrations::status()['kiwify']['implemented'] === true, 'Kiwify implementada em modo leitura');
 try {
     (new AffiliateIntegrations())->hotmartSalesSummary();
     throw new RuntimeException('Credenciais ausentes não bloquearam consulta');

@@ -11,16 +11,21 @@ if (!isLoggedIn()) {
 $statuses = AffiliateIntegrations::status();
 $csrfToken = Security::generateCSRFToken();
 $summary = null;
+$kiwifyProducts = null;
 $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         if (!Security::validateCSRFToken((string) ($_POST['csrf_token'] ?? ''))) {
             throw new RuntimeException('Token CSRF inválido.');
         }
-        if (($_POST['action'] ?? '') !== 'hotmart_summary') {
+        $action = (string) ($_POST['action'] ?? '');
+        if ($action === 'hotmart_summary') {
+            $summary = (new AffiliateIntegrations())->hotmartSalesSummary(10);
+        } elseif ($action === 'kiwify_products') {
+            $kiwifyProducts = (new KiwifyIntegration())->listProducts(1, 10);
+        } else {
             throw new RuntimeException('Ação não reconhecida.');
         }
-        $summary = (new AffiliateIntegrations())->hotmartSalesSummary(10);
     } catch (Throwable $exception) {
         $error = $exception->getMessage();
     }
@@ -86,7 +91,33 @@ function hAffiliate(string $value): string
                     <?php endif; ?>
                 </div>
             </section>
-            <p class="small text-muted mt-3">Kiwify e Monetizze: conectores específicos ainda pendentes; não são exibidos como conectados.</p>
+            <section class="card mt-3">
+                <div class="card-body">
+                    <h2 class="h5">Kiwify — Produtos disponíveis</h2>
+                    <p>Consulta somente leitura à primeira página (até 10 produtos). Não publica ofertas, não modifica preços e não importa compradores.</p>
+                    <form method="post">
+                        <input type="hidden" name="csrf_token" value="<?= hAffiliate($csrfToken) ?>">
+                        <input type="hidden" name="action" value="kiwify_products">
+                        <button class="btn btn-primary" type="submit" <?= $statuses['kiwify']['ready'] ? '' : 'disabled' ?>>Consultar produtos</button>
+                    </form>
+                    <?php if ($kiwifyProducts !== null): ?>
+                        <div class="alert alert-success mt-3">Consulta concluída: <?= count($kiwifyProducts['data']) ?> produto(s) nesta página.</div>
+                        <div class="table-responsive"><table class="table table-sm">
+                            <thead><tr><th>Produto</th><th>Status</th><th>Moeda</th></tr></thead><tbody>
+                            <?php foreach ($kiwifyProducts['data'] as $row):
+                                if (!is_array($row)) { continue; }
+                            ?>
+                                <tr>
+                                    <td><?= hAffiliate((string) ($row['name'] ?? '-')) ?></td>
+                                    <td><?= hAffiliate((string) ($row['status'] ?? '-')) ?></td>
+                                    <td><?= hAffiliate((string) ($row['currency'] ?? '-')) ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody></table></div>
+                    <?php endif; ?>
+                </div>
+            </section>
+            <p class="small text-muted mt-3">Monetizze: conector específico pendente; não é exibido como conectado.</p>
         </main>
     </div>
 </div>
