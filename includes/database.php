@@ -145,7 +145,7 @@ class Database {
                     INDEX idx_categoria (categoria),
                     INDEX idx_preco (preco),
                     INDEX idx_slug (slug),
-                    FULLTEXT idx_busca (nome, descricao, tags)
+                    FULLTEXT idx_busca (nome, descricao)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ");
             
@@ -251,80 +251,10 @@ class Database {
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ");
             
-            // Inserir dados iniciais
-            $this->insertInitialData();
+            // Instalação limpa: não criar usuários ou lojas de exemplo automaticamente.
             
         } catch (PDOException $e) {
             $this->logError('Table Creation Error: ' . $e->getMessage());
-        }
-    }
-    
-    /**
-     * Inserir dados iniciais
-     */
-    private function insertInitialData() {
-        try {
-            // Verificar se já existem configurações
-            $stmt = $this->pdo->query("SELECT COUNT(*) FROM configuracoes");
-            if ($stmt->fetchColumn() == 0) {
-                // Configurações padrão
-                $configuracoes = [
-                    ['site_nome', 'TTaTim Cupons', 'string', 'Nome do site'],
-                    ['site_descricao', 'Encontre os melhores cupons e ofertas', 'string', 'Descrição do site'],
-                    ['site_url', 'http://localhost', 'string', 'URL do site'],
-                    ['admin_email', 'admin@ttatim.com', 'string', 'Email do administrador'],
-                    ['itens_por_pagina', '20', 'number', 'Número de itens por página'],
-                    ['manutencao', '0', 'boolean', 'Modo manutenção'],
-                    ['seo_config', '{"meta_title":"TTaTim Cupons - Melhores Ofertas","meta_description":"Encontre os melhores cupons de desconto e ofertas exclusivas","meta_keywords":"cupons, descontos, ofertas, economia"}', 'json', 'Configurações SEO'],
-                    ['afiliados_config', '{"ml_app_id":"","ml_app_secret":"","shopee_partner_id":"","shopee_partner_key":"","ali_app_key":"","ali_app_secret":""}', 'json', 'Configurações de Afiliados'],
-                    ['email_config', '{"smtp_host":"","smtp_port":"587","smtp_username":"","smtp_password":"","smtp_secure":"tls"}', 'json', 'Configurações de Email'],
-                    ['upload_config', '{"upload_max_size":"5","allowed_extensions":["jpg","jpeg","png","gif","webp"]}', 'json', 'Configurações de Upload']
-                ];
-                
-                $stmt = $this->pdo->prepare("
-                    INSERT INTO configuracoes (chave, valor, tipo, descricao) 
-                    VALUES (?, ?, ?, ?)
-                ");
-                
-                foreach ($configuracoes as $config) {
-                    $stmt->execute($config);
-                }
-            }
-            
-            // Verificar se já existe usuário admin
-            $stmt = $this->pdo->query("SELECT COUNT(*) FROM usuarios WHERE username = 'ttatim'");
-            if ($stmt->fetchColumn() == 0) {
-                $password_hash = password_hash('senha123', PASSWORD_DEFAULT);
-                $stmt = $this->pdo->prepare("
-                    INSERT INTO usuarios (username, password, email, nome, nivel) 
-                    VALUES (?, ?, ?, ?, 'admin')
-                ");
-                $stmt->execute(['ttatim', $password_hash, 'admin@ttatim.com', 'Administrador TTaTim']);
-            }
-            
-            // Inserir lojas de exemplo se não existirem
-            $stmt = $this->pdo->query("SELECT COUNT(*) FROM lojas");
-            if ($stmt->fetchColumn() == 0) {
-                $lojas = [
-                    ['Magazine Luiza', 'magalu', 'Magazine Luiza - Tudo para sua casa', 'https://www.magazineluiza.com.br'],
-                    ['Americanas', 'americanas', 'Americanas - Tudo que você precisa', 'https://www.americanas.com.br'],
-                    ['Mercado Livre', 'mercado-livre', 'Mercado Livre - Maior plataforma', 'https://www.mercadolivre.com.br'],
-                    ['Amazon', 'amazon', 'Amazon - Do A ao Z', 'https://www.amazon.com.br'],
-                    ['Shopee', 'shopee', 'Shopee - Compre e venda', 'https://www.shopee.com.br']
-                ];
-                
-                $stmt = $this->pdo->prepare("
-                    INSERT INTO lojas (nome, slug, descricao, website) 
-                    VALUES (?, ?, ?, ?)
-                ");
-                
-                foreach ($lojas as $loja) {
-                    $stmt->execute($loja);
-                }
-            }
-            
-        } catch (PDOException $e) {
-            $this->logError('Initial Data Error: ' . $e->getMessage());
         }
     }
     
