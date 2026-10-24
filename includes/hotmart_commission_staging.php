@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/hotmart_commission_observation_history.php';
 
 /**
  * Registro mínimo de observações de comissões Hotmart para revisão humana.
@@ -115,6 +116,7 @@ final class HotmartCommissionStaging
             observed_status = IF(review_required = 1 AND VALUES(review_required) = 0, observed_status, VALUES(observed_status)),
             review_required = GREATEST(review_required, VALUES(review_required)), updated_at = CURRENT_TIMESTAMP';
         $pdo->beginTransaction();
+        $observationsRecorded = 0;
         try {
             $statement = $pdo->prepare($sql);
             foreach ($normalized['rows'] as $row) {
@@ -129,6 +131,11 @@ final class HotmartCommissionStaging
                     ':review_required' => $review,
                 ]);
             }
+            // Histórico distinto por conteúdo, no mesmo commit da atualização do staging.
+            // Não presume ordem cronológica da Hotmart nem altera saldo.
+            $observationsRecorded = HotmartCommissionObservationHistory::record(
+                $pdo, $normalized['account_hash'], $normalized['rows'], $key, $status
+            );
             $pdo->commit();
         } catch (Throwable $exception) {
             if ($pdo->inTransaction()) {
@@ -136,7 +143,7 @@ final class HotmartCommissionStaging
             }
             throw $exception;
         }
-        return ['groups_staged' => count($normalized['rows']), 'commissions_matched' => $normalized['matched'], 'review_required' => $review === 1];
+        return ['groups_staged' => count($normalized['rows']), 'commissions_matched' => $normalized['matched'], 'review_required' => $review === 1, 'observations_recorded' => $observationsRecorded];
     }
 
     /**
@@ -161,6 +168,12 @@ final class HotmartCommissionStaging
             }
         }
         return $result;
+    }
+
+    /** Histórico local agregado; o horário de coleta não confirma a ordem dos eventos da API. */
+    public static function observationBreakdown(PDO $pdo, string $ucode, string $key): array
+    {
+        return HotmartCommissionObservationHistory::breakdown($pdo, self::scope($ucode, $key));
     }
 
     /** Somente contagens, sem hashes nem valores identificáveis de transação. */
