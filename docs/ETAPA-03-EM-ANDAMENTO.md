@@ -122,3 +122,13 @@
 - Testes de OAuth simulado, paginação, codificação de cursor e rejeição de entradas inválidas: `php tests/test_hotmart_commission_preview.php`; executados no CI PHP 8.3/8.4.
 - Homologação real depende de credenciais Hotmart autorizadas. Antes de persistir comissões será necessário definir titularidade da conta, isolamento por vendedor, identificador de transação minimizado, idempotência, reembolsos e política de retenção.
 - Documentação oficial: https://developers.hotmart.com/docs/pt-BR/v1/sales/sales-commissions/ e https://developers.hotmart.com/docs/en/start/pagination/ .
+
+## Complemento: prévia de comissões por UCODE de participante (24/10/2026)
+
+- A API Hotmart documenta `commissions[].user.ucode` para identificar o participante que recebe cada parcela. O painel agora oferece **prévia separada** apenas para parcelas cujo UCODE coincida com `HOTMART_ACCOUNT_UCODE` (UUID informado manualmente pelo operador no ambiente do servidor).
+- Configure `HOTMART_ACCOUNT_UCODE` **fora do repositório e do webroot**, utilizando o identificador oficial do participante na conta autorizada. O valor configurado **não aparece no HTML, logs da aplicação, resultados agregados ou banco**. A comparação não consulta endpoint de validação de titularidade.
+- Sem variável configurada, a prévia filtrada fica desativada; a visão anterior de **todos os participantes** permanece disponível e claramente identificada. Com UCODE inválido, a consulta retorna erro de configuração em vez de produzir valores falsamente atribuídos.
+- UCODEs ausentes, malformados ou diferentes são excluídos da soma filtrada. O painel apresenta somente contagens e agregados por moeda/origem da **página corrente**. Não persiste dados, não calcula saldo, não converte moedas nem cria lançamentos contábeis.
+- **Aviso de negócio:** coincidência com UCODE configurado não comprova que o usuário autenticado no Cupons é o titular, que a transação está liquidada ou que a comissão pertence à instalação. Ainda faltam verificação autorizada da titularidade, segregação por vendedor (item 10), deduplicação entre páginas, tratamento de estornos/chargebacks e homologação com credenciais reais.
+- Teste: `php tests/test_hotmart_commission_account_preview.php` (PHP 8.3/8.4 no CI), com coincidência exata sem diferenciar maiúsculas, UCODE ausente, terceiros, valores inválidos e ausência de identificadores pessoais no resultado.
+- Fonte oficial: https://developers.hotmart.com/docs/pt-BR/v1/sales/sales-commissions/

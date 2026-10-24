@@ -16,6 +16,8 @@ $statuses = AffiliateIntegrations::status();
 $csrfToken = Security::generateCSRFToken();
 $summary = null;
 $commissionPreview = null;
+$commissionAccountPreview = null;
+$hotmartAccountUcode = trim((string) getenv('HOTMART_ACCOUNT_UCODE'));
 $commissionPage = null;
 $commissionHasNext = false;
 $kiwifyProducts = null;
@@ -47,6 +49,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $commissionData = (new AffiliateIntegrations())->hotmartSalesCommissions(10, $cursor);
             require_once __DIR__ . '/../includes/hotmart_commission_preview.php';
             $commissionPreview = HotmartCommissionPreview::summarize($commissionData['items']);
+            if ($hotmartAccountUcode !== '') {
+                require_once __DIR__ . '/../includes/hotmart_commission_account_preview.php';
+                $commissionAccountPreview = HotmartCommissionAccountPreview::summarize($commissionData['items'], $hotmartAccountUcode);
+            }
             $commissionPage = $nextPage ? (int) ($_SESSION['hotmart_commissions_page'] ?? 1) + 1 : 1;
             $_SESSION['hotmart_commissions_page'] = $commissionPage;
             $_SESSION['hotmart_commissions_next'] = $commissionData['page_info']['next_page_token'];
@@ -176,6 +182,24 @@ function hAffiliate(string $value): string
                                 <tr><td><?= hAffiliate($group['source']) ?></td><td><?= hAffiliate($group['currency']) ?></td><td><?= (int) $group['count'] ?></td><td><?= hAffiliate($group['amount']) ?></td></tr>
                             <?php endforeach; ?>
                             </tbody></table></div>
+                        <?php if ($commissionAccountPreview !== null): ?>
+                            <h3 class="h6 mt-4">Prévia filtrada por UCODE configurado</h3>
+                            <p class="small text-warning-emphasis">Coincidência com o UCODE informado no servidor; <strong>não comprova titularidade, recebimento, liquidação ou conciliação</strong>. Não é um saldo financeiro.</p>
+                            <div class="alert alert-secondary">
+                                <?= (int) $commissionAccountPreview['matched_commissions'] ?> comissão(ões) coincidente(s) em
+                                <?= (int) $commissionAccountPreview['transactions_with_match'] ?> transação(ões);
+                                <?= (int) $commissionAccountPreview['other_participants'] ?> de outros participantes e
+                                <?= (int) $commissionAccountPreview['without_valid_ucode'] ?> sem UCODE válido, excluídas do filtro.
+                            </div>
+                            <div class="table-responsive"><table class="table table-sm">
+                                <thead><tr><th>Origem</th><th>Moeda</th><th>Comissões coincidentes</th><th>Valor da página</th></tr></thead><tbody>
+                                <?php foreach ($commissionAccountPreview['totals'] as $group): ?>
+                                    <tr><td><?= hAffiliate($group['source']) ?></td><td><?= hAffiliate($group['currency']) ?></td><td><?= (int) $group['count'] ?></td><td><?= hAffiliate($group['amount']) ?></td></tr>
+                                <?php endforeach; ?>
+                                </tbody></table></div>
+                        <?php else: ?>
+                            <p class="small text-muted mt-2">Prévia por participante desativada: configure HOTMART_ACCOUNT_UCODE no servidor para comparar os UCODEs retornados pela API. O identificador não é exibido.</p>
+                        <?php endif; ?>
                         <?php if ($commissionHasNext): ?>
                             <form method="post" class="mt-3">
                                 <input type="hidden" name="csrf_token" value="<?= hAffiliate($csrfToken) ?>">
