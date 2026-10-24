@@ -27,11 +27,15 @@ $events = [
     eventForTest(str_repeat('5', 64), str_repeat('b', 32), '2', '2'),
 ];
 $summary = MonetizzeWebhookReview::preview($events, $key);
-verifyMonetizzeReview($summary === [
+$expected = [
     'received' => 6, 'unique' => 4, 'duplicates' => 1, 'other_account' => 1,
     'positive' => 1, 'risk' => 2, 'needs_review' => 1,
     'financial_ready' => false, 'authenticated' => false,
-], 'contagens, idempotência e classificação conservadora');
+];
+foreach ($expected as $field => $value) {
+    verifyMonetizzeReview(array_key_exists($field, $summary) && $summary[$field] === $value, 'campo agregado ' . $field);
+}
+verifyMonetizzeReview(count($summary) === count($expected), 'nenhum campo adicional');
 verifyMonetizzeReview(!str_contains(json_encode($summary), 'DADO-PESSOAL'), 'sem dados pessoais');
 verifyMonetizzeReview(!str_contains(json_encode($summary), '999999'), 'sem valores');
 verifyMonetizzeReview(!str_contains(json_encode($summary), $key), 'sem chave da conta');
