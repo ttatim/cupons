@@ -98,3 +98,5 @@
 - **Testes:** `php tests/test_affiliate_product_publication.php` verifica entradas inseguras e incompletas. Com `TEST_DB_DSN` restrito a `dbname=cupons_test`, valida transação, isolamento entre contas, ausência de duplicação e reimportação. O CI testa PHP 8.3/8.4 com MySQL 8.
 - **Limitações:** a publicação não faz conciliação de comissões, não valida a titularidade dos checkouts, não faz moderação por múltiplos administradores e não implementa segregação por vendedor (item 10). Não configurar credenciais de vendedores diferentes até essa etapa. Nenhuma integração real com a API foi homologada.
 - O PR #7 anterior permanece incompatível com o schema atual e não deve ser mesclado sem rebase/revisão; esta implementação foi reconstruída a partir da `main` atual, respeitando as colunas existentes de `produtos` e `lojas`.
+
+- Corrigida a consulta de `oferta.php`: o schema atual de `lojas` não possui a coluna `ativo`. A página de detalhes passa a filtrar apenas a atividade do produto, mantendo a associação com a loja cadastrada.
