@@ -83,6 +83,33 @@ final class AffiliateIntegrations
         return ['items' => $data['items'], 'page_info' => is_array($data['page_info'] ?? null) ? $data['page_info'] : []];
     }
 
+    /**
+     * Consulta uma página de comissões Hotmart, sem gravar participantes ou compradores.
+     * Sem filtros de status, a API retorna por padrão APPROVED e COMPLETE.
+     * @return array{items:array,page_info:array}
+     */
+    public function hotmartSalesCommissions(int $maxResults = 10): array
+    {
+        if (!self::credentialsPresent()) {
+            throw new RuntimeException('Configure as credenciais Hotmart no servidor.');
+        }
+        if ($maxResults < 1 || $maxResults > 50) {
+            throw new InvalidArgumentException('Limite permitido: 1 a 50.');
+        }
+        $query = http_build_query(['max_results' => $maxResults], '', '&', PHP_QUERY_RFC3986);
+        $data = $this->request('GET', 'https://developers.hotmart.com/payments/api/v1/sales/commissions?' . $query, [
+            'Authorization: Bearer ' . $this->accessToken(),
+            'Accept: application/json',
+        ]);
+        if (!isset($data['items']) || !is_array($data['items']) || !array_is_list($data['items'])) {
+            throw new RuntimeException('Hotmart não retornou uma lista válida de comissões.');
+        }
+        if (count($data['items']) > $maxResults) {
+            throw new RuntimeException('Hotmart retornou mais transações que o limite solicitado.');
+        }
+        return ['items' => $data['items'], 'page_info' => is_array($data['page_info'] ?? null) ? $data['page_info'] : []];
+    }
+
     private function accessToken(): string
     {
         if ($this->token !== null && time() < $this->expiresAt) {

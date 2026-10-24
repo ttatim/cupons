@@ -100,3 +100,14 @@
 - O PR #7 anterior permanece incompatível com o schema atual e não deve ser mesclado sem rebase/revisão; esta implementação foi reconstruída a partir da `main` atual, respeitando as colunas existentes de `produtos` e `lojas`.
 
 - Corrigida a consulta de `oferta.php`: o schema atual de `lojas` não possui a coluna `ativo`. A página de detalhes passa a filtrar apenas a atividade do produto, mantendo a associação com a loja cadastrada.
+
+
+## Complemento: prévia de comissões Hotmart (24/10/2026)
+
+- Consulta manual somente leitura de \`GET /payments/api/v1/sales/commissions\`, usando OAuth existente e no máximo 10 transações da **primeira página**. O filtro padrão da API, sem parâmetros adicionais, contempla APPROVED e COMPLETE.
+- O painel mostra exclusivamente valores agregados **por moeda e papel do participante** (PRODUCER, COPRODUCER, AFFILIATE, ADDON; outras origens como OUTROS). Não retorna nomes, IDs de usuários, compradores, IDs de transação ou credenciais para a interface. Não persiste os resultados.
+- **A soma de participantes NÃO é comissão pessoal do operador, saldo a receber, valor liquidado nem conciliação financeira.** Podem existir vários participantes por transação e outras páginas, e reembolsos/chargebacks exigem tratamento próprio.
+- Validação estrita de formatos monetários com até duas casas decimais, agregação em centavos inteiros, separação por moeda e rejeição de payloads inválidos. Não há conversão cambial.
+- Testes: \`php tests/test_hotmart_commission_preview.php\`, incluído na matriz de CI PHP 8.3/8.4. Sem credenciais reais, o endpoint foi testado somente com respostas simuladas.
+- Próximos trabalhos: paginação por cursor, filtragem de status, identificação da conta comissionada, persistência mínima com idempotência, conciliação de estornos e validação real da API. Não executar pagamentos ou lançar receita contábil a partir desta prévia.
+- Documentação oficial: https://developers.hotmart.com/docs/pt-BR/v1/sales/sales-commissions/
