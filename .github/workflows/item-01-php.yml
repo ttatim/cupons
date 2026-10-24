@@ -47,7 +47,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          find . -type f -name '*.php' -print0 | xargs -0 -r -n1 php -l
+          status=0
+          while IFS= read -r -d '' file; do
+            php -l "$file" || status=1
+          done < <(find . -type f -name '*.php' -print0)
+          exit "$status"
       - name: Runtime unit tests
         run: php tests/test_runtime_requirements.php
       - name: Importer unit tests
