@@ -1,0 +1,59 @@
+name: Affiliate product staging
+
+on:
+  pull_request:
+    paths:
+      - 'includes/affiliate_product_staging.php'
+      - 'admin/integracoes-afiliados.php'
+      - 'sql/updates/20261024_affiliate_product_staging.sql'
+      - 'tests/test_affiliate_product_staging.php'
+      - '.github/workflows/affiliate-staging.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'includes/affiliate_product_staging.php'
+      - 'admin/integracoes-afiliados.php'
+      - 'sql/updates/20261024_affiliate_product_staging.sql'
+      - 'tests/test_affiliate_product_staging.php'
+      - '.github/workflows/affiliate-staging.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4']
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: cupons_test
+          MYSQL_USER: cupons
+          MYSQL_PASSWORD: testpass
+          MYSQL_ROOT_PASSWORD: rootpass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -prootpass"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo_mysql, mbstring, curl
+          coverage: none
+      - name: PHP syntax
+        run: |
+          php -l includes/affiliate_product_staging.php
+          php -l admin/integracoes-afiliados.php
+          php -l tests/test_affiliate_product_staging.php
+      - name: MySQL staging integration tests
+        env:
+          TEST_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=cupons_test;charset=utf8mb4'
+          TEST_DB_USER: cupons
+          TEST_DB_PASSWORD: testpass
+        run: php tests/test_affiliate_product_staging.php

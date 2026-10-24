@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/affiliate_integrations.php';
+require_once __DIR__ . '/../includes/affiliate_product_staging.php';
 
 if (!isLoggedIn()) {
     header('Location: login.php');
@@ -12,6 +13,8 @@ $statuses = AffiliateIntegrations::status();
 $csrfToken = Security::generateCSRFToken();
 $summary = null;
 $kiwifyProducts = null;
+$stagingResult = null;
+$stagedProducts = null;
 $monetizzeChecked = false;
 $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -24,13 +27,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $summary = (new AffiliateIntegrations())->hotmartSalesSummary(10);
         } elseif ($action === 'kiwify_products') {
             $kiwifyProducts = (new KiwifyIntegration())->listProducts(1, 10);
+        } elseif ($action === 'kiwify_stage') {
+            $kiwifyProducts = (new KiwifyIntegration())->listProducts(1, 10);
+            $stagingResult = AffiliateProductStaging::stageKiwify($pdo, trim((string) getenv('KIWIFY_ACCOUNT_ID')), $kiwifyProducts['data']);
+            $stagedProducts = AffiliateProductStaging::listKiwify($pdo, trim((string) getenv('KIWIFY_ACCOUNT_ID')));
         } elseif ($action === 'monetizze_check') {
             $monetizzeChecked = (new MonetizzeIntegration())->checkConnection();
         } else {
             throw new RuntimeException('Ação não reconhecida.');
         }
     } catch (Throwable $exception) {
-        $error = $exception->getMessage();
+        $error = $exception instanceof PDOException
+            ? 'Não foi possível salvar o catálogo. Confira a migração affiliate_product_staging e as permissões do banco.'
+            : $exception->getMessage();
     }
 }
 function hAffiliate(string $value): string
@@ -103,6 +112,21 @@ function hAffiliate(string $value): string
                         <input type="hidden" name="action" value="kiwify_products">
                         <button class="btn btn-primary" type="submit" <?= $statuses['kiwify']['ready'] ? '' : 'disabled' ?>>Consultar produtos</button>
                     </form>
+                    <form method="post" class="mt-2">
+                        <input type="hidden" name="csrf_token" value="<?= hAffiliate($csrfToken) ?>">
+                        <input type="hidden" name="action" value="kiwify_stage">
+                        <button class="btn btn-outline-primary" type="submit" <?= $statuses['kiwify']['ready'] ? '' : 'disabled' ?>>Importar 10 produtos para revisão</button>
+                    </form>
+                    <p class="small text-muted mt-2">Importa somente ID, nome, status e moeda para uma tabela isolada por conta. Não publica ofertas, preços, imagens, checkout ou dados de compradores. Execute a migração SQL antes.</p>
+                    <?php if ($stagingResult !== null): ?>
+                        <div class="alert alert-info mt-3">Catálogo em revisão: <?= (int) $stagingResult['processed'] ?> registro(s) processado(s), <?= (int) $stagingResult['rejected'] ?> rejeitado(s). Nenhuma oferta foi publicada.</div>
+                        <div class="table-responsive"><table class="table table-sm">
+                            <thead><tr><th>ID externo</th><th>Produto</th><th>Status</th><th>Moeda</th></tr></thead><tbody>
+                            <?php foreach ($stagedProducts ?? [] as $item): ?>
+                                <tr><td><?= hAffiliate((string) $item['external_id']) ?></td><td><?= hAffiliate((string) $item['name']) ?></td><td><?= hAffiliate((string) $item['status']) ?></td><td><?= hAffiliate((string) ($item['currency'] ?? '-')) ?></td></tr>
+                            <?php endforeach; ?>
+                            </tbody></table></div>
+                    <?php endif; ?>
                     <?php if ($kiwifyProducts !== null): ?>
                         <div class="alert alert-success mt-3">Consulta concluída: <?= count($kiwifyProducts['data']) ?> produto(s) nesta página.</div>
                         <div class="table-responsive"><table class="table table-sm">

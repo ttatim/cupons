@@ -54,3 +54,14 @@
 - A autenticação real depende de chave válida e acesso de rede; não foi testada com credenciais reais.
 - Documentação oficial da API: https://help.monetizze.com.br/books/integracoes/page/api-monetizze e https://api.monetizze.com.br/2.1/apidoc/ .
 - A consulta de produtos/comissões depende da confirmação de endpoints e formatos atuais da API 2.1 e da política de autorização do fornecedor. Não inferir essas rotas nem tratar verificação de chave como sincronização concluída.
+
+## Complemento da etapa: staging de produtos Kiwify (24/10/2026)
+
+- Nova tabela `affiliate_product_staging` com chave única por fornecedor, hash da conta e identificador externo; nenhuma alteração nas tabelas públicas `produtos` ou `cupons`.
+- Na área **Integração > Afiliados**, o botão **Importar 10 produtos para revisão** consulta a primeira página da Kiwify e grava **apenas** identificador externo, nome, status e moeda. Os demais campos da API, inclusive eventuais dados pessoais, URLs, preços e tokens, são descartados.
+- Importação repetida atualiza o registro existente (upsert), sem duplicação. Produtos inválidos são rejeitados e contabilizados. A gravação é transacional e o escopo de consulta usa um hash SHA-256 do `KIWIFY_ACCOUNT_ID`.
+- **Não publica automaticamente, não inventa links de checkout e não altera comissões.** Revisão, mapeamento de loja, preço e URL de checkout devem ocorrer antes de qualquer publicação, em evolução posterior.
+- Para banco existente ou instalação nova, aplique `sql/updates/20261024_affiliate_product_staging.sql` **após** `sql/database.sql` e antes de utilizar o botão. A migração cria apenas a tabela vazia, sem dados de exemplo.
+- Testes de normalização: `php tests/test_affiliate_product_staging.php`. Testes reais de persistência exigem `TEST_DB_DSN` apontando explicitamente para `dbname=cupons_test`, `TEST_DB_USER` e `TEST_DB_PASSWORD`. O workflow `affiliate-staging.yml` provisiona MySQL 8 e PHP 8.3/8.4 para essa validação.
+- Sem credenciais reais da Kiwify, não é possível homologar a leitura da API em produção. Não configurar credenciais de vendedores distintos neste ambiente até o item 10 (segregação multiusuário).
+- Esta implementação não executa cron nem importa todo o catálogo: limite de 10 produtos por ação manual, com paginação e publicação automatizadas ainda pendentes.
