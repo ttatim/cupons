@@ -44,7 +44,7 @@ final class AffiliateProductStaging
         ];
     }
 
-    private static function accountHash(string $accountId): string
+    public static function accountHash(string $accountId): string
     {
         if (!preg_match('/\A[a-zA-Z0-9_-]{3,128}\z/D', $accountId)) {
             throw new InvalidArgumentException('Identificador da conta Kiwify inválido.');
