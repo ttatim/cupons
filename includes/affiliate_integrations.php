@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/kiwify_integration.php';
+require_once __DIR__ . '/monetizze_integration.php';
 
 /**
  * Integração Hotmart (OAuth 2.0 + consulta somente leitura).
@@ -39,9 +40,12 @@ final class AffiliateIntegrations
             ],
             'monetizze' => [
                 'label' => 'Monetizze',
-                'state' => 'conector pendente; API oficial disponível',
-                'ready' => false,
+                'state' => MonetizzeIntegration::credentialsPresent()
+                    ? 'chave configurada (não verificada); consultas pendentes'
+                    : 'aguardando chave; consultas pendentes',
+                'ready' => MonetizzeIntegration::credentialsPresent(),
                 'implemented' => false,
+                'auth_check_implemented' => true,
             ],
         ];
     }
