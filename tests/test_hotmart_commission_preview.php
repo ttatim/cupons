@@ -29,7 +29,7 @@ $transport = static function (string $method, string $url, array $headers, ?stri
                 ['source' => 'ADDON', 'commission' => ['currency_value' => 'USD', 'value' => 1]],
             ]],
         ],
-        'page_info' => ['total_results' => 2],
+        'page_info' => ['total_results' => 2, 'next_page_token' => 'eyJwYWdlIjoyfQ=='],
     ], JSON_THROW_ON_ERROR)];
 };
 $client = new AffiliateIntegrations(Closure::fromCallable($transport));
@@ -44,6 +44,30 @@ assertCommission($summary['totals'][1]['amount'] === '2.50' && $summary['totals'
 assertCommission(!str_contains(json_encode($summary, JSON_THROW_ON_ERROR), 'PRIVATE'), 'sem PII nem identificadores de transação');
 $client->hotmartSalesCommissions(5);
 assertCommission(count($calls) === 3, 'OAuth reutilizado');
+assertCommission($data['page_info']['next_page_token'] === 'eyJwYWdlIjoyfQ==', 'cursor validado');
+$nextPage = $client->hotmartSalesCommissions(10, $data['page_info']['next_page_token']);
+assertCommission(count($calls) === 4, 'próxima página sem renovar OAuth');
+assertCommission(str_contains($calls[3]['url'], 'page_token=eyJwYWdlIjoyfQ%3D%3D'), 'cursor codificado por http_build_query');
+assertCommission($nextPage['page_info']['next_page_token'] === 'eyJwYWdlIjoyfQ==', 'próximo cursor devolvido');
+foreach (["bad\\r\\nInjected: yes", "bad&other=1", str_repeat('x', 1025), ''] as $badCursor) {
+    try {
+        $client->hotmartSalesCommissions(10, $badCursor);
+        throw new RuntimeException('Cursor inválido aceito');
+    } catch (InvalidArgumentException $expected) {}
+}
+assertCommission(count($calls) === 4, 'cursor inválido não gera requisição');
+$invalidCursorTransport = static function (string $method, string $url): array {
+    if (str_contains($url, '/oauth/token')) {
+        return ['status' => 200, 'body' => '{"access_token":"test-token","expires_in":3600}'];
+    }
+    return ['status' => 200, 'body' => '{"items":[],"page_info":{"next_page_token":"bad&unsafe=1"}}'];
+};
+try {
+    (new AffiliateIntegrations(Closure::fromCallable($invalidCursorTransport)))->hotmartSalesCommissions(10);
+    throw new RuntimeException('Cursor inválido retornado pela API foi aceito');
+} catch (RuntimeException $expected) {
+    assertCommission(str_contains($expected->getMessage(), 'cursor'), 'resposta da API com cursor inválido bloqueada');
+}
 foreach ([0, 51] as $limit) {
     try {
         $client->hotmartSalesCommissions($limit);

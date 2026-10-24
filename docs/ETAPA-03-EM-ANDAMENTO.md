@@ -111,3 +111,14 @@
 - Testes: \`php tests/test_hotmart_commission_preview.php\`, incluído na matriz de CI PHP 8.3/8.4. Sem credenciais reais, o endpoint foi testado somente com respostas simuladas.
 - Próximos trabalhos: paginação por cursor, filtragem de status, identificação da conta comissionada, persistência mínima com idempotência, conciliação de estornos e validação real da API. Não executar pagamentos ou lançar receita contábil a partir desta prévia.
 - Documentação oficial: https://developers.hotmart.com/docs/pt-BR/v1/sales/sales-commissions/
+
+
+## Complemento: paginação segura de comissões Hotmart (24/10/2026)
+
+- A consulta manual de comissões permite avançar página a página com `page_token` documentado oficialmente. Cada consulta processa no máximo 10 transações; os totais mostrados são **apenas da página corrente**, sem somar páginas anteriores.
+- O cursor opaco `next_page_token` é validado (até 1024 caracteres, sem caracteres de controle ou separadores de query) e mantido exclusivamente na sessão PHP autenticada. Ele **não aparece no HTML, em URLs do navegador, em logs da aplicação ou no banco**.
+- O botão **Consultar próxima página** é exibido somente quando a API informa um próximo cursor. **Iniciar consulta** reinicia a paginação. Ambas as ações são POST com proteção CSRF.
+- Não há importação de compradores, persistência de transações, cálculo de saldo do usuário nem conciliação financeira. Não tratar os totais de participantes como comissões próprias.
+- Testes de OAuth simulado, paginação, codificação de cursor e rejeição de entradas inválidas: `php tests/test_hotmart_commission_preview.php`; executados no CI PHP 8.3/8.4.
+- Homologação real depende de credenciais Hotmart autorizadas. Antes de persistir comissões será necessário definir titularidade da conta, isolamento por vendedor, identificador de transação minimizado, idempotência, reembolsos e política de retenção.
+- Documentação oficial: https://developers.hotmart.com/docs/pt-BR/v1/sales/sales-commissions/ e https://developers.hotmart.com/docs/en/start/pagination/ .
