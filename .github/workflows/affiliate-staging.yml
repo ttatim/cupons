@@ -17,6 +17,8 @@ on:
       - 'tests/test_affiliate_import_page.php'
       - 'includes/hotmart_commission_staging.php'
       - 'sql/updates/20261024_hotmart_commission_staging.sql'
+      - 'includes/hotmart_commission_observation_history.php'
+      - 'sql/updates/20261024_hotmart_commission_observations.sql'
       - 'tests/test_hotmart_commission_staging.php'
       - 'includes/hotmart_commission_stage_pagination.php'
       - 'tests/test_hotmart_commission_stage_pagination.php'
@@ -38,6 +40,8 @@ on:
       - 'tests/test_affiliate_import_page.php'
       - 'includes/hotmart_commission_staging.php'
       - 'sql/updates/20261024_hotmart_commission_staging.sql'
+      - 'includes/hotmart_commission_observation_history.php'
+      - 'sql/updates/20261024_hotmart_commission_observations.sql'
       - 'tests/test_hotmart_commission_staging.php'
       - 'includes/hotmart_commission_stage_pagination.php'
       - 'tests/test_hotmart_commission_stage_pagination.php'
@@ -84,6 +88,7 @@ jobs:
           php -l tests/test_affiliate_product_publication.php
           php -l tests/test_affiliate_import_page.php
           php -l includes/hotmart_commission_staging.php
+          php -l includes/hotmart_commission_observation_history.php
           php -l tests/test_hotmart_commission_staging.php
           php -l includes/hotmart_commission_stage_pagination.php
           php -l tests/test_hotmart_commission_stage_pagination.php
