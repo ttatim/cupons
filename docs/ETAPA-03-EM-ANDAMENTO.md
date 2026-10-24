@@ -218,3 +218,11 @@
 - **Não é um receptor HTTP e não autentica notificações**; nenhum evento é persistido, nenhuma operação financeira é autorizada e nenhum dado real é necessário.
 - Teste isolado `php tests/test_monetizze_webhook_review.php` integrado ao CI PHP 8.3/8.4.
 - Detalhes e bloqueios: [ETAPA-03-MONETIZZE-WEBHOOK-PREPARACAO.md](ETAPA-03-MONETIZZE-WEBHOOK-PREPARACAO.md).
+
+
+## Complemento: relay interno assinado para Monetizze (24/10/2026)
+
+- Adicionado verificador HMAC-SHA256 de **relay próprio de confiança**, com timestamp, nonce, limite de payload e interface de reserva atômica anti-replay. **Não equivale à autenticação de webhook nativo Monetizze.**
+- O verificador é local, sem endpoint HTTP, persistência, alteração de banco ou uso financeiro. \`relay_authenticated\` significa apenas assinatura do relay validada; \`authenticated\` e \`financial_ready\` permanecem falsos.
+- O callback de replay precisa ser durável antes de uso operacional; o teste usa simulação em memória. A autenticação upstream e homologação oficial seguem bloqueadas.
+- Teste \`php tests/test_monetizze_signed_relay_review.php\` na matriz PHP 8.3/8.4; documentação do protocolo em [ETAPA-03-MONETIZZE-WEBHOOK-PREPARACAO.md](ETAPA-03-MONETIZZE-WEBHOOK-PREPARACAO.md).
