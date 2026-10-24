@@ -30,6 +30,7 @@ jobs:
           php -l includes/database.php
           php -l includes/auth.php
           php -l admin/login.php
+          php -l admin/lojas.php
           php -l admin/includes/sidebar.php
           php -l scripts/create_admin.php
       - name: Importer unit tests
