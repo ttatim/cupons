@@ -176,6 +176,15 @@ final class HotmartCommissionStaging
         return HotmartCommissionObservationHistory::breakdown($pdo, self::scope($ucode, $key));
     }
 
+    /**
+     * Contagens cumulativas por idade das observações. Apenas leitura:
+     * a decisão sobre retenção e eventual exclusão permanece humana.
+     */
+    public static function retentionInventory(PDO $pdo, string $ucode, string $key): array
+    {
+        return HotmartCommissionObservationHistory::retentionInventory($pdo, self::scope($ucode, $key));
+    }
+
     /** Somente contagens, sem hashes nem valores identificáveis de transação. */
     public static function counts(PDO $pdo, string $ucode, string $key): array
     {

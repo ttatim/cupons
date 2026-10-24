@@ -111,6 +111,34 @@ checkStage(HotmartCommissionStaging::observationBreakdown($pdo, $other, $key) ==
 ], 'histórico de outra conta isolado');
 checkStage((int) $pdo->query('SELECT COUNT(*) FROM hotmart_commission_observations')->fetchColumn() === 5,
     'idempotência e isolamento persistidos');
+// Inventário de retenção: consulta somente leitura, faixas cumulativas e
+// isolamento por conta. Ajustes de datas ocorrem APENAS em cupons_test.
+$accountHash = $n['account_hash'];
+$age = $pdo->prepare("UPDATE hotmart_commission_observations
+    SET observed_at = DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 45 DAY)
+    WHERE account_hash = :account_hash AND observed_status = 'APPROVED'");
+$age->execute([':account_hash' => $accountHash]);
+$age = $pdo->prepare("UPDATE hotmart_commission_observations
+    SET observed_at = DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 120 DAY)
+    WHERE account_hash = :account_hash AND observed_status = 'CHARGEBACK'");
+$age->execute([':account_hash' => $accountHash]);
+$age = $pdo->prepare("UPDATE hotmart_commission_observations
+    SET observed_at = DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 400 DAY)
+    WHERE account_hash = :account_hash AND observed_status = 'REFUNDED'");
+$age->execute([':account_hash' => $accountHash]);
+checkStage(HotmartCommissionStaging::retentionInventory($pdo, $ucode, $key) === [
+    'total' => 4, 'older_30_days' => 4, 'older_90_days' => 2, 'older_365_days' => 1,
+], 'inventário de retenção cumulativo');
+checkStage(HotmartCommissionStaging::retentionInventory($pdo, $other, $key) === [
+    'total' => 1, 'older_30_days' => 0, 'older_90_days' => 0, 'older_365_days' => 0,
+], 'inventário isolado por conta');
+checkStage((int) $pdo->query('SELECT COUNT(*) FROM hotmart_commission_observations')->fetchColumn() === 5,
+    'inventário não exclui observações');
+try {
+    HotmartCommissionObservationHistory::retentionInventory($pdo, 'hash-invalido');
+    throw new RuntimeException('Aceitou hash de conta inválido');
+} catch (InvalidArgumentException $expected) {}
+
 $pdo->exec('DELETE FROM hotmart_commission_observations');
 $pdo->exec('DELETE FROM hotmart_commission_staging');
 echo "Hotmart staging: MySQL, histórico idempotente, isolamento e alertas aprovados.\n";

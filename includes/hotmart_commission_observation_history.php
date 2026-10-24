@@ -59,4 +59,31 @@ final class HotmartCommissionObservationHistory
         }
         return $result;
     }
+
+    /**
+     * Inventário não destrutivo de retenção para subsidiar decisão do proprietário.
+     * Faixas são cumulativas e calculadas sobre o horário local de coleta.
+     * Não expõe hashes, valores, transações ou outros identificadores.
+     *
+     * @return array{total:int,older_30_days:int,older_90_days:int,older_365_days:int}
+     */
+    public static function retentionInventory(PDO $pdo, string $accountHash): array
+    {
+        if (!preg_match('/\\A[a-f0-9]{64}\\z/D', $accountHash)) {
+            throw new InvalidArgumentException('Escopo de conta inválido.');
+        }
+        $statement = $pdo->prepare('SELECT COUNT(*) AS total,
+            COALESCE(SUM(CASE WHEN observed_at < CURRENT_TIMESTAMP - INTERVAL 30 DAY THEN 1 ELSE 0 END), 0) AS older_30_days,
+            COALESCE(SUM(CASE WHEN observed_at < CURRENT_TIMESTAMP - INTERVAL 90 DAY THEN 1 ELSE 0 END), 0) AS older_90_days,
+            COALESCE(SUM(CASE WHEN observed_at < CURRENT_TIMESTAMP - INTERVAL 365 DAY THEN 1 ELSE 0 END), 0) AS older_365_days
+            FROM hotmart_commission_observations WHERE account_hash = :account_hash');
+        $statement->execute([':account_hash' => $accountHash]);
+        $row = $statement->fetch(PDO::FETCH_ASSOC) ?: [];
+        return [
+            'total' => (int) ($row['total'] ?? 0),
+            'older_30_days' => (int) ($row['older_30_days'] ?? 0),
+            'older_90_days' => (int) ($row['older_90_days'] ?? 0),
+            'older_365_days' => (int) ($row['older_365_days'] ?? 0),
+        ];
+    }
 }

@@ -23,6 +23,7 @@ $commissionStageResult = null;
 $commissionStageCounts = null;
 $commissionReviewBreakdown = null;
 $commissionObservationBreakdown = null;
+$commissionRetentionInventory = null;
 $commissionStageProgress = null;
 $commissionStageEnabled = trim((string) getenv('HOTMART_ACCOUNT_UCODE')) !== ''
     && strlen((string) getenv('HOTMART_COMMISSION_HASH_KEY')) >= 32;
@@ -78,6 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $commissionStageCounts = HotmartCommissionStaging::counts($pdo, $account, $hashKey);
             $commissionReviewBreakdown = HotmartCommissionStaging::reviewBreakdown($pdo, $account, $hashKey);
             $commissionObservationBreakdown = HotmartCommissionStaging::observationBreakdown($pdo, $account, $hashKey);
+            $commissionRetentionInventory = HotmartCommissionStaging::retentionInventory($pdo, $account, $hashKey);
         } elseif ($action === 'hotmart_commissions_stage' || $action === 'hotmart_commissions_stage_next') {
             $roleStmt = $pdo->prepare('SELECT nivel FROM usuarios WHERE id = :id AND ativo = 1');
             $roleStmt->execute([':id' => (int) ($_SESSION['user_id'] ?? 0)]);
@@ -111,6 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $commissionStageCounts = HotmartCommissionStaging::counts($pdo, $account, $hashKey);
             $commissionReviewBreakdown = HotmartCommissionStaging::reviewBreakdown($pdo, $account, $hashKey);
             $commissionObservationBreakdown = HotmartCommissionStaging::observationBreakdown($pdo, $account, $hashKey);
+            $commissionRetentionInventory = HotmartCommissionStaging::retentionInventory($pdo, $account, $hashKey);
         } elseif ($action === 'kiwify_products') {
             $kiwifyPage = AffiliateImportPage::parse($_POST['kiwify_page'] ?? null);
             $kiwifyProducts = (new KiwifyIntegration())->listProducts($kiwifyPage, 10);
@@ -346,6 +349,19 @@ function hAffiliate(string $value): string
                                 <?php endforeach; ?>
                                 </tbody></table></div>
                         <?php endif; ?>
+                    <?php endif; ?>
+                    <?php if ($commissionRetentionInventory !== null): ?>
+                        <h4 class="h6 mt-3">Inventário de retenção (somente leitura)</h4>
+                        <p class="small text-muted">Observações técnicas por idade da coleta local. Faixas cumulativas, não representam idade da venda nem eventos financeiros. Nenhum registro é excluído por esta consulta; a política de retenção depende de aprovação.</p>
+                        <div class="table-responsive"><table class="table table-sm">
+                            <thead><tr><th>Total</th><th>Mais de 30 dias</th><th>Mais de 90 dias</th><th>Mais de 365 dias</th></tr></thead>
+                            <tbody><tr>
+                                <td><?= (int) $commissionRetentionInventory['total'] ?></td>
+                                <td><?= (int) $commissionRetentionInventory['older_30_days'] ?></td>
+                                <td><?= (int) $commissionRetentionInventory['older_90_days'] ?></td>
+                                <td><?= (int) $commissionRetentionInventory['older_365_days'] ?></td>
+                            </tr></tbody>
+                        </table></div>
                     <?php endif; ?>
                 <?php endif; ?>
             </section>
