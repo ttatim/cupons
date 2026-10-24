@@ -12,6 +12,7 @@ $statuses = AffiliateIntegrations::status();
 $csrfToken = Security::generateCSRFToken();
 $summary = null;
 $kiwifyProducts = null;
+$monetizzeChecked = false;
 $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -23,6 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $summary = (new AffiliateIntegrations())->hotmartSalesSummary(10);
         } elseif ($action === 'kiwify_products') {
             $kiwifyProducts = (new KiwifyIntegration())->listProducts(1, 10);
+        } elseif ($action === 'monetizze_check') {
+            $monetizzeChecked = (new MonetizzeIntegration())->checkConnection();
         } else {
             throw new RuntimeException('Ação não reconhecida.');
         }
@@ -117,7 +120,21 @@ function hAffiliate(string $value): string
                     <?php endif; ?>
                 </div>
             </section>
-            <p class="small text-muted mt-3">Monetizze: conector específico pendente; não é exibido como conectado.</p>
+            <section class="card mt-3">
+                <div class="card-body">
+                    <h2 class="h5">Monetizze — Verificação de chave de API</h2>
+                    <p>Valida a chave X_CONSUMER_KEY no endpoint de token. Não importa produtos, compradores ou comissões; o token recebido é descartado.</p>
+                    <form method="post">
+                        <input type="hidden" name="csrf_token" value="<?= hAffiliate($csrfToken) ?>">
+                        <input type="hidden" name="action" value="monetizze_check">
+                        <button class="btn btn-primary" type="submit" <?= $statuses['monetizze']['ready'] ? '' : 'disabled' ?>>Verificar chave Monetizze</button>
+                    </form>
+                    <?php if ($monetizzeChecked): ?>
+                        <div class="alert alert-success mt-3">Autenticação Monetizze confirmada nesta consulta. Nenhum dado foi importado.</div>
+                    <?php endif; ?>
+                </div>
+            </section>
+            <p class="small text-muted mt-3">A sincronização Monetizze permanece pendente; a verificação de chave não representa uma integração completa.</p>
         </main>
     </div>
 </div>
