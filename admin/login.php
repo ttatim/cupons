@@ -1,52 +1,42 @@
 <?php
-require_once '../includes/config.php';
-criarUsuarioPadrao($pdo);
+declare(strict_types=1);
+require_once __DIR__ . '/../includes/config.php';
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/security.php';
+header('X-Content-Type-Options: nosniff');
+header('Cache-Control: no-store, private');
 
-if ($_POST) {
-    if (login($_POST['username'], $_POST['password'], $pdo)) {
+if (isLoggedIn()) {
+    header('Location: dashboard.php');
+    exit;
+}
+$error = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $username = trim((string)($_POST['username'] ?? ''));
+    $password = (string)($_POST['password'] ?? '');
+    if (!Security::validateCSRFToken((string)($_POST['csrf_token'] ?? ''))) {
+        $error = 'Sessão expirada. Atualize a página.';
+    } elseif (!Security::checkRateLimit('login', 5, 300)) {
+        http_response_code(429);
+        $error = 'Muitas tentativas. Aguarde alguns minutos.';
+    } elseif ($username !== '' && $password !== '' && login($username, $password, $pdo)) {
+        session_regenerate_id(true);
         header('Location: dashboard.php');
         exit;
     } else {
-        $error = "Credenciais inválidas!";
+        $error = 'Usuário ou senha inválidos.';
     }
 }
+$token = Security::generateCSRFToken();
 ?>
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Administração</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { background: #f8f9fa; }
-        .login-container { max-width: 400px; margin: 100px auto; }
-    </style>
-</head>
-<body>
-    <div class="login-container">
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white text-center">
-                <h4>Área Administrativa</h4>
-            </div>
-            <div class="card-body p-4">
-                <?php if (isset($error)): ?>
-                    <div class="alert alert-danger"><?= $error ?></div>
-                <?php endif; ?>
-                
-                <form method="POST">
-                    <div class="mb-3">
-                        <label class="form-label">Usuário</label>
-                        <input type="text" name="username" class="form-control" value="ttatim" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Senha</label>
-                        <input type="password" name="password" class="form-control" value="senha123" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100">Entrar</button>
-                </form>
-            </div>
-        </div>
-    </div>
-</body>
-</html>
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Entrar | Cupons</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"></head>
+<body class="bg-light"><main class="container py-5" style="max-width:440px">
+<div class="card shadow-sm"><div class="card-header bg-primary text-white"><h1 class="h5 mb-0">Área administrativa</h1></div>
+<div class="card-body p-4"><?php if($error!==''):?><div class="alert alert-danger"><?= htmlspecialchars($error,ENT_QUOTES,'UTF-8') ?></div><?php endif;?>
+<form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($token,ENT_QUOTES,'UTF-8') ?>">
+<div class="mb-3"><label class="form-label" for="username">Usuário</label><input id="username" name="username" type="text" class="form-control" autocomplete="username" maxlength="50" required></div>
+<div class="mb-3"><label class="form-label" for="password">Senha</label><input id="password" name="password" type="password" class="form-control" autocomplete="current-password" required></div>
+<button class="btn btn-primary w-100" type="submit">Entrar</button></form></div></div>
+<p class="text-secondary small mt-3">A primeira conta deve ser criada pelo administrador do servidor usando o script CLI de instalação.</p>
+</main></body></html>
