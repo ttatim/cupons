@@ -27,6 +27,7 @@ $events = [
     eventForTest(str_repeat('5', 64), str_repeat('b', 32), '2', '2'),
 ];
 $summary = MonetizzeWebhookReview::preview($events, $key);
+echo 'diagnostic=' . json_encode(['account_match' => hash_equals($key, $events[0]['chave_unica']), 'single' => MonetizzeWebhookReview::preview([$events[0]], $key), 'summary' => $summary]) . "\n";
 $expected = [
     'received' => 6, 'unique' => 4, 'duplicates' => 1, 'other_account' => 1,
     'positive' => 1, 'risk' => 2, 'needs_review' => 1,
