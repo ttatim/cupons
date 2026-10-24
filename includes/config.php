@@ -42,6 +42,8 @@ try {
     }
 }
 
+require_once __DIR__ . '/security.php';
+
 // ---- Carrega classe Database (opcional: autocriar tabelas) ----
 require_once __DIR__ . '/database.php';
 if (class_exists('Database')) {
