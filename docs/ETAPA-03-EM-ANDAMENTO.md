@@ -185,3 +185,13 @@
 - Requer a migração existente `sql/updates/20261024_hotmart_commission_observations.sql`, aplicada depois de `20261024_hotmart_commission_staging.sql`. **Não há nova migração** nem inserção de dados nesta evolução.
 - Teste de integração: `php tests/test_hotmart_commission_staging.php` com `TEST_DB_DSN` apontando exclusivamente para `cupons_test`; verifica faixas, isolamento por conta, rejeição de hash inválido e ausência de exclusão. Sem banco, apenas os testes unitários preexistentes são executados.
 - **Pendências:** aprovação formal de uma política de retenção, homologação da API com credenciais reais, titularidade da conta, semântica dos status, conciliação financeira e isolamento por vendedor (item 10). Os números do inventário não devem ser tratados como extrato financeiro.
+
+
+## Complemento: diagnóstico de integridade local de comissões (24/10/2026)
+
+- Em **Integração > Afiliados > Consultar alertas registrados**, o administrador recebe quatro contagens: grupos de staging sem observação histórica, observações históricas sem grupo de staging, alertas sem histórico de risco e grupos sem alerta que possuem histórico de risco.
+- As consultas são **somente leitura**, filtradas pelo HMAC da conta configurada; não exibem transações, hashes, UCODE, compradores, valores ou tokens. Não modificam saldo, histórico, sinalizadores de revisão nem dados de produção.
+- A detecção é **local**, limitada às tabelas `hotmart_commission_staging` e `hotmart_commission_observations`. Contagem zero **não** comprova completude das páginas consultadas, titularidade, liquidação, semântica cronológica dos eventos, ausência de estornos ou conciliação financeira.
+- As quatro contagens são calculadas em consultas separadas; escritas concorrentes podem produzir diferenças transitórias entre as contagens. Uma divergência exige investigação humana, nunca exclusão ou reparo automático.
+- Requer as migrações já existentes `20261024_hotmart_commission_staging.sql` e `20261024_hotmart_commission_observations.sql`; **não há nova migração**. Executar `php tests/test_hotmart_commission_staging.php` com `TEST_DB_DSN` apontando estritamente para `cupons_test` valida inconsistências sintéticas, segregação por conta e ausência de mutações. O CI cobre PHP 8.3/8.4 e MySQL 8.
+- **Bloqueios para conciliação real:** credenciais e autorização válidas, confirmação independente da titularidade, semântica e cronologia de eventos junto à Hotmart, política de retenção aprovada e isolamento por vendedor (item 10). Não interpretar estes indicadores como extrato financeiro.

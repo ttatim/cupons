@@ -86,4 +86,46 @@ final class HotmartCommissionObservationHistory
             'older_365_days' => (int) ($row['older_365_days'] ?? 0),
         ];
     }
+
+    /**
+     * Diagnóstico de integridade local, somente leitura, sem transações ou PII.
+     * Detecta inconsistências entre staging e histórico; não valida titularidade,
+     * ordem de eventos, liquidação nem saldo da Hotmart.
+     *
+     * @return array{staged_without_history:int,orphan_observations:int,flagged_without_risk_history:int,unflagged_with_risk_history:int}
+     */
+    public static function integrityInventory(PDO $pdo, string $accountHash): array
+    {
+        if (strlen($accountHash) !== 64 || !ctype_xdigit($accountHash) || strtolower($accountHash) !== $accountHash) {
+            throw new InvalidArgumentException('Escopo de conta inválido.');
+        }
+        $joins = 'o.account_hash = s.account_hash
+            AND o.transaction_hash = s.transaction_hash
+            AND o.source = s.source AND o.currency = s.currency';
+        $risk = "o.observed_status IN ('REFUNDED', 'CHARGEBACK', 'PARTIALLY_REFUNDED')";
+        $checks = [
+            'staged_without_history' => 'SELECT COUNT(*) FROM hotmart_commission_staging s
+                WHERE s.account_hash = :account_hash AND NOT EXISTS (
+                    SELECT 1 FROM hotmart_commission_observations o WHERE ' . $joins . ')',
+            'orphan_observations' => 'SELECT COUNT(*) FROM hotmart_commission_observations o
+                WHERE o.account_hash = :account_hash AND NOT EXISTS (
+                    SELECT 1 FROM hotmart_commission_staging s
+                    WHERE s.account_hash = o.account_hash AND s.transaction_hash = o.transaction_hash
+                    AND s.source = o.source AND s.currency = o.currency)',
+            'flagged_without_risk_history' => 'SELECT COUNT(*) FROM hotmart_commission_staging s
+                WHERE s.account_hash = :account_hash AND s.review_required = 1 AND NOT EXISTS (
+                    SELECT 1 FROM hotmart_commission_observations o WHERE ' . $joins . ' AND ' . $risk . ')',
+            'unflagged_with_risk_history' => 'SELECT COUNT(*) FROM hotmart_commission_staging s
+                WHERE s.account_hash = :account_hash AND s.review_required = 0 AND EXISTS (
+                    SELECT 1 FROM hotmart_commission_observations o WHERE ' . $joins . ' AND ' . $risk . ')',
+        ];
+        $inventory = [];
+        foreach ($checks as $name => $sql) {
+            $statement = $pdo->prepare($sql);
+            $statement->execute([':account_hash' => $accountHash]);
+            $inventory[$name] = (int) $statement->fetchColumn();
+        }
+        return $inventory;
+    }
+
 }

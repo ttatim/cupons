@@ -139,6 +139,53 @@ try {
     throw new RuntimeException('Aceitou hash de conta inválido');
 } catch (InvalidArgumentException $expected) {}
 
+// Diagnóstico de integridade: leitura isolada e detecção de divergências
+// sintéticas, exclusivamente no banco descartável cupons_test.
+$zeroIntegrity = [
+    'staged_without_history' => 0, 'orphan_observations' => 0,
+    'flagged_without_risk_history' => 0, 'unflagged_with_risk_history' => 0,
+];
+checkStage(HotmartCommissionStaging::integrityInventory($pdo, $ucode, $key) === $zeroIntegrity,
+    'integridade inicial da conta');
+checkStage(HotmartCommissionStaging::integrityInventory($pdo, $other, $key) === $zeroIntegrity,
+    'integridade inicial de outra conta');
+$syntheticAccount = $n['account_hash'];
+$withoutHistory = hash('sha256', 'test-without-history');
+$withUnflaggedRisk = hash('sha256', 'test-unflagged-risk');
+$orphan = hash('sha256', 'test-orphan-observation');
+$insertGroup = $pdo->prepare("INSERT INTO hotmart_commission_staging
+    (account_hash, transaction_hash, source, currency, amount_cents, commission_count, observed_status, review_required)
+    VALUES (:account_hash, :transaction_hash, 'AFFILIATE', 'BRL', 100, 1, :observed_status, :review_required)");
+$insertGroup->execute([':account_hash' => $syntheticAccount, ':transaction_hash' => $withoutHistory,
+    ':observed_status' => 'REFUNDED', ':review_required' => 1]);
+$insertGroup->execute([':account_hash' => $syntheticAccount, ':transaction_hash' => $withUnflaggedRisk,
+    ':observed_status' => 'APPROVED', ':review_required' => 0]);
+$insertObservation = $pdo->prepare("INSERT INTO hotmart_commission_observations
+    (account_hash, transaction_hash, source, currency, observed_status, amount_cents, commission_count, observation_hash)
+    VALUES (:account_hash, :transaction_hash, 'AFFILIATE', 'BRL', 'REFUNDED', 100, 1, :observation_hash)");
+$insertObservation->execute([':account_hash' => $syntheticAccount, ':transaction_hash' => $withUnflaggedRisk,
+    ':observation_hash' => hash('sha256', 'test-risk-fingerprint')]);
+$insertObservation->execute([':account_hash' => $syntheticAccount, ':transaction_hash' => $orphan,
+    ':observation_hash' => hash('sha256', 'test-orphan-fingerprint')]);
+$beforeIntegrity = [
+    (int) $pdo->query('SELECT COUNT(*) FROM hotmart_commission_staging')->fetchColumn(),
+    (int) $pdo->query('SELECT COUNT(*) FROM hotmart_commission_observations')->fetchColumn(),
+];
+checkStage(HotmartCommissionStaging::integrityInventory($pdo, $ucode, $key) === [
+    'staged_without_history' => 1, 'orphan_observations' => 1,
+    'flagged_without_risk_history' => 1, 'unflagged_with_risk_history' => 1,
+], 'diagnóstico identifica quatro divergências locais');
+checkStage(HotmartCommissionStaging::integrityInventory($pdo, $other, $key) === $zeroIntegrity,
+    'diagnóstico não mistura contas');
+checkStage($beforeIntegrity === [
+    (int) $pdo->query('SELECT COUNT(*) FROM hotmart_commission_staging')->fetchColumn(),
+    (int) $pdo->query('SELECT COUNT(*) FROM hotmart_commission_observations')->fetchColumn(),
+], 'diagnóstico não altera registros');
+try {
+    HotmartCommissionObservationHistory::integrityInventory($pdo, 'escopo-invalido');
+    throw new RuntimeException('Aceitou escopo inválido');
+} catch (InvalidArgumentException $expected) {}
+
 $pdo->exec('DELETE FROM hotmart_commission_observations');
 $pdo->exec('DELETE FROM hotmart_commission_staging');
 echo "Hotmart staging: MySQL, histórico idempotente, isolamento e alertas aprovados.\n";
