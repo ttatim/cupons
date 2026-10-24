@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/../includes/hotmart_commission_staging.php';
+require_once __DIR__ . '/../includes/hotmart_commission_reconciliation_preflight.php';
 function checkStage(bool $ok, string $label): void {
     if (!$ok) { throw new RuntimeException('Falhou: ' . $label); }
 }
@@ -33,6 +34,52 @@ foreach ([['items' => $page, 'ucode' => $ucode, 'key' => 'weak', 'status' => 'AP
     try { HotmartCommissionStaging::normalize($bad['items'], $bad['ucode'], $bad['key'], $bad['status']); throw new RuntimeException('Aceitou entrada inválida'); }
     catch (InvalidArgumentException $expected) {}
 }
+
+// Pré-verificação local nunca equivale a saldo ou autorização de pagamento.
+$emptyIntegrity = [
+    'staged_without_history' => 0, 'orphan_observations' => 0,
+    'flagged_without_risk_history' => 0, 'unflagged_with_risk_history' => 0,
+];
+$emptyEvidence = [
+    'positive_and_risk_groups' => 0, 'multiple_risk_status_groups' => 0,
+    'amount_variation_groups' => 0,
+];
+$cleanPreflight = HotmartCommissionReconciliationPreflight::assess(
+    ['groups_total' => 2, 'groups_to_review' => 0], $emptyIntegrity, $emptyEvidence
+);
+checkStage($cleanPreflight['local_consistent'] && !$cleanPreflight['manual_review_required']
+    && !$cleanPreflight['financial_ready'], 'dados locais íntegros não autorizam conciliação');
+checkStage(count($cleanPreflight['reasons']) === 1, 'pendências externas permanecem explícitas');
+$emptyPreflight = HotmartCommissionReconciliationPreflight::assess(
+    ['groups_total' => 0, 'groups_to_review' => 0], $emptyIntegrity, $emptyEvidence
+);
+checkStage(!$emptyPreflight['local_consistent'] && $emptyPreflight['manual_review_required']
+    && !$emptyPreflight['financial_ready'], 'ausência de dados bloqueia pré-verificação');
+$riskPreflight = HotmartCommissionReconciliationPreflight::assess(
+    ['groups_total' => 2, 'groups_to_review' => 1],
+    array_replace($emptyIntegrity, ['orphan_observations' => 1]),
+    array_replace($emptyEvidence, ['amount_variation_groups' => 1])
+);
+checkStage(!$riskPreflight['local_consistent'] && $riskPreflight['manual_review_required']
+    && !$riskPreflight['financial_ready'] && count($riskPreflight['reasons']) === 4,
+    'divergências e riscos exigem revisão sem liberar pagamentos');
+foreach ([
+    [['groups_total' => -1, 'groups_to_review' => 0], $emptyIntegrity, $emptyEvidence],
+    [['groups_total' => 1], $emptyIntegrity, $emptyEvidence],
+    [['groups_total' => '1', 'groups_to_review' => 0], $emptyIntegrity, $emptyEvidence],
+    [['groups_total' => 1, 'groups_to_review' => 0], [], $emptyEvidence],
+] as $invalidPreflight) {
+    try {
+        HotmartCommissionReconciliationPreflight::assess(...$invalidPreflight);
+        throw new RuntimeException('Pré-verificação aceitou indicadores inválidos');
+    } catch (InvalidArgumentException $expected) {}
+}
+$inconsistentPreflight = HotmartCommissionReconciliationPreflight::assess(
+    ['groups_total' => 1, 'groups_to_review' => 2], $emptyIntegrity, $emptyEvidence
+);
+checkStage(!$inconsistentPreflight['local_consistent'] && !$inconsistentPreflight['financial_ready'],
+    'contagem impossível bloqueada');
+
 $dsn = (string) getenv('TEST_DB_DSN');
 if ($dsn === '') { echo "Hotmart staging: validação, minimização e HMAC aprovados; MySQL não executado (TEST_DB_DSN ausente).\n"; exit(0); }
 if (!str_contains($dsn, 'dbname=cupons_test')) { throw new RuntimeException('Banco de teste obrigatório: cupons_test.'); }

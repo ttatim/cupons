@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/affiliate_import_page.php';
 require_once __DIR__ . '/../includes/affiliate_product_review.php';
 require_once __DIR__ . '/../includes/affiliate_product_publication.php';
 require_once __DIR__ . '/../includes/hotmart_commission_staging.php';
+require_once __DIR__ . '/../includes/hotmart_commission_reconciliation_preflight.php';
 require_once __DIR__ . '/../includes/hotmart_commission_stage_pagination.php';
 
 if (!isLoggedIn()) {
@@ -26,6 +27,7 @@ $commissionObservationBreakdown = null;
 $commissionRetentionInventory = null;
 $commissionIntegrityInventory = null;
 $commissionEvidenceInventory = null;
+$commissionReconciliationPreflight = null;
 $commissionStageProgress = null;
 $commissionStageEnabled = trim((string) getenv('HOTMART_ACCOUNT_UCODE')) !== ''
     && strlen((string) getenv('HOTMART_COMMISSION_HASH_KEY')) >= 32;
@@ -84,6 +86,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $commissionRetentionInventory = HotmartCommissionStaging::retentionInventory($pdo, $account, $hashKey);
             $commissionIntegrityInventory = HotmartCommissionStaging::integrityInventory($pdo, $account, $hashKey);
             $commissionEvidenceInventory = HotmartCommissionStaging::evidenceInventory($pdo, $account, $hashKey);
+            $commissionReconciliationPreflight = HotmartCommissionReconciliationPreflight::assess(
+                $commissionStageCounts, $commissionIntegrityInventory, $commissionEvidenceInventory
+            );
         } elseif ($action === 'hotmart_commissions_stage' || $action === 'hotmart_commissions_stage_next') {
             $roleStmt = $pdo->prepare('SELECT nivel FROM usuarios WHERE id = :id AND ativo = 1');
             $roleStmt->execute([':id' => (int) ($_SESSION['user_id'] ?? 0)]);
@@ -120,6 +125,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $commissionRetentionInventory = HotmartCommissionStaging::retentionInventory($pdo, $account, $hashKey);
             $commissionIntegrityInventory = HotmartCommissionStaging::integrityInventory($pdo, $account, $hashKey);
             $commissionEvidenceInventory = HotmartCommissionStaging::evidenceInventory($pdo, $account, $hashKey);
+            $commissionReconciliationPreflight = HotmartCommissionReconciliationPreflight::assess(
+                $commissionStageCounts, $commissionIntegrityInventory, $commissionEvidenceInventory
+            );
         } elseif ($action === 'kiwify_products') {
             $kiwifyPage = AffiliateImportPage::parse($_POST['kiwify_page'] ?? null);
             $kiwifyProducts = (new KiwifyIntegration())->listProducts($kiwifyPage, 10);
@@ -380,6 +388,22 @@ function hAffiliate(string $value): string
                                 <td><?= (int) $commissionEvidenceInventory['amount_variation_groups'] ?></td>
                             </tr></tbody>
                         </table></div>
+                    <?php endif; ?>
+                    <?php if ($commissionReconciliationPreflight !== null): ?>
+                        <div class="alert alert-warning mt-3" role="status">
+                            <strong>Pré-verificação de conciliação: não autorizado para uso financeiro.</strong>
+                            <p class="mb-1">Consistência local:
+                                <?= $commissionReconciliationPreflight['local_consistent'] ? 'sem divergências detectadas' : 'pendente' ?>.
+                                Revisão manual:
+                                <?= $commissionReconciliationPreflight['manual_review_required'] ? 'necessária' : 'sem alertas locais detectados' ?>.
+                            </p>
+                            <ul class="mb-0">
+                                <?php foreach ($commissionReconciliationPreflight['reasons'] as $reason): ?>
+                                    <li><?= hAffiliate($reason) ?></li>
+                                <?php endforeach; ?>
+                            </ul>
+                            <p class="small mb-0 mt-2">Esta verificação não comprova titularidade, completude, liquidação nem autoriza pagamento ou reconhecimento de receita.</p>
+                        </div>
                     <?php endif; ?>
                     <?php if ($commissionIntegrityInventory !== null): ?>
                         <h4 class="h6 mt-3">Diagnóstico de integridade local (somente leitura)</h4>
