@@ -191,6 +191,12 @@ final class HotmartCommissionStaging
         return HotmartCommissionObservationHistory::integrityInventory($pdo, self::scope($ucode, $key));
     }
 
+    /** Indicadores de evidências locais para revisão, sem cálculo de saldo. */
+    public static function evidenceInventory(PDO $pdo, string $ucode, string $key): array
+    {
+        return HotmartCommissionObservationHistory::evidenceInventory($pdo, self::scope($ucode, $key));
+    }
+
     /** Somente contagens, sem hashes nem valores identificáveis de transação. */
     public static function counts(PDO $pdo, string $ucode, string $key): array
     {
