@@ -22,6 +22,7 @@ $commissionAccountPreview = null;
 $commissionStageResult = null;
 $commissionStageCounts = null;
 $commissionReviewBreakdown = null;
+$commissionObservationBreakdown = null;
 $commissionStageProgress = null;
 $commissionStageEnabled = trim((string) getenv('HOTMART_ACCOUNT_UCODE')) !== ''
     && strlen((string) getenv('HOTMART_COMMISSION_HASH_KEY')) >= 32;
@@ -76,6 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $hashKey = (string) getenv('HOTMART_COMMISSION_HASH_KEY');
             $commissionStageCounts = HotmartCommissionStaging::counts($pdo, $account, $hashKey);
             $commissionReviewBreakdown = HotmartCommissionStaging::reviewBreakdown($pdo, $account, $hashKey);
+            $commissionObservationBreakdown = HotmartCommissionStaging::observationBreakdown($pdo, $account, $hashKey);
         } elseif ($action === 'hotmart_commissions_stage' || $action === 'hotmart_commissions_stage_next') {
             $roleStmt = $pdo->prepare('SELECT nivel FROM usuarios WHERE id = :id AND ativo = 1');
             $roleStmt->execute([':id' => (int) ($_SESSION['user_id'] ?? 0)]);
@@ -108,6 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
             $commissionStageCounts = HotmartCommissionStaging::counts($pdo, $account, $hashKey);
             $commissionReviewBreakdown = HotmartCommissionStaging::reviewBreakdown($pdo, $account, $hashKey);
+            $commissionObservationBreakdown = HotmartCommissionStaging::observationBreakdown($pdo, $account, $hashKey);
         } elseif ($action === 'kiwify_products') {
             $kiwifyPage = AffiliateImportPage::parse($_POST['kiwify_page'] ?? null);
             $kiwifyProducts = (new KiwifyIntegration())->listProducts($kiwifyPage, 10);
@@ -290,7 +293,7 @@ function hAffiliate(string $value): string
                     <?php if ($commissionStageResult !== null): ?>
                         <div class="alert alert-info mt-3">
                             Página <?= (int) $commissionStageProgress['page'] ?>, status <?= hAffiliate($commissionStageProgress['status']) ?>: <?= (int) $commissionStageResult['commissions_matched'] ?> parcela(s) coincidente(s), em
-                            <?= (int) $commissionStageResult['groups_staged'] ?> grupo(s) de observação.
+                            <?= (int) $commissionStageResult['groups_staged'] ?> grupo(s) de observação; <?= (int) $commissionStageResult['observations_recorded'] ?> nova(s) observação(ões) histórica(s).
                             <?= $commissionStageResult['review_required'] ? 'Status requer revisão humana.' : 'Sem comprovação de liquidação.' ?>
                             Total armazenado nesta conta: <?= (int) $commissionStageCounts['groups_total'] ?> grupo(s);
                             <?= (int) $commissionStageCounts['groups_to_review'] ?> pendente(s) de revisão.
@@ -329,6 +332,20 @@ function hAffiliate(string $value): string
                                 <tr><td><?= hAffiliate($group['status']) ?></td><td><?= (int) $group['groups'] ?></td></tr>
                             <?php endforeach; ?>
                             </tbody></table></div>
+                    <?php endif; ?>
+                    <?php if ($commissionObservationBreakdown !== null): ?>
+                        <h4 class="h6 mt-3">Histórico mínimo de observações (por status consultado)</h4>
+                        <p class="small text-muted">Contagens de observações distintas, não eventos confirmados pela Hotmart. O horário de coleta local não estabelece a ordem real dos eventos. Não representa saldo nem conciliação.</p>
+                        <?php if ($commissionObservationBreakdown === []): ?>
+                            <p class="small">Nenhuma observação histórica registrada nesta conta.</p>
+                        <?php else: ?>
+                            <div class="table-responsive"><table class="table table-sm">
+                                <thead><tr><th>Status consultado</th><th>Observações distintas</th></tr></thead><tbody>
+                                <?php foreach ($commissionObservationBreakdown as $observation): ?>
+                                    <tr><td><?= hAffiliate($observation['status']) ?></td><td><?= (int) $observation['observations'] ?></td></tr>
+                                <?php endforeach; ?>
+                                </tbody></table></div>
+                        <?php endif; ?>
                     <?php endif; ?>
                 <?php endif; ?>
             </section>
