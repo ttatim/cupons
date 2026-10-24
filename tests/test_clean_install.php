@@ -20,4 +20,12 @@ ensure(str_contains($html, 'ir para pagamento'), 'Botão de pagamento não rende
 ensure(str_contains($html, 'Pegue seu cupom'), 'Botão de cupom não renderizado.');
 ensure(str_contains($html, 'Produto de teste'), 'Produto não renderizado.');
 ensure(str_contains($html, 'Cupom de teste'), 'Cupom não renderizado.');
+$produtoId = (int)$pdo->query('SELECT id FROM produtos ORDER BY id DESC LIMIT 1')->fetchColumn();
+$_GET['id'] = (string)$produtoId;
+ob_start();
+require __DIR__ . '/../oferta.php';
+$offerHtml = ob_get_clean();
+unset($_GET['id']);
+ensure(str_contains($offerHtml, 'Produto de teste'), 'Página de oferta não renderizou o produto.');
+ensure(str_contains($offerHtml, 'go.php?tipo=produto&amp;id=' . $produtoId), 'Página de oferta não aponta ao redirecionamento rastreado.');
 echo "Instalação limpa, esquema e vitrine validados.\n";
