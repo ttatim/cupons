@@ -65,3 +65,14 @@
 - Testes de normalização: `php tests/test_affiliate_product_staging.php`. Testes reais de persistência exigem `TEST_DB_DSN` apontando explicitamente para `dbname=cupons_test`, `TEST_DB_USER` e `TEST_DB_PASSWORD`. O workflow `affiliate-staging.yml` provisiona MySQL 8 e PHP 8.3/8.4 para essa validação.
 - Sem credenciais reais da Kiwify, não é possível homologar a leitura da API em produção. Não configurar credenciais de vendedores distintos neste ambiente até o item 10 (segregação multiusuário).
 - Esta implementação não executa cron nem importa todo o catálogo: limite de 10 produtos por ação manual, com paginação e publicação automatizadas ainda pendentes.
+
+## Complemento da etapa: publicação supervisionada de produtos Kiwify (24/10/2026)
+
+- Novo painel **Integração > Revisar Kiwify** em `admin/affiliate-review.php`. Ele lista até 50 produtos importados da conta Kiwify configurada e exibe o estado de publicação.
+- O editor autenticado escolhe uma loja ativa, escreve descrição entre 20 e 1500 caracteres, informa preço em BRL e **cola explicitamente** a URL HTTPS do checkout. A API não fornece um link de afiliado presumido.
+- A publicação é transacional: bloqueia o registro em revisão, verifica conta e moeda, cria o produto público e registra `published_product_id`/`published_at` para impedir duplicações. Uma reimportação não apaga a associação publicada.
+- Produtos de outra conta, lojas inativas, URLs sem HTTPS, hosts locais/privados, preços inválidos e moeda diferente de BRL são recusados. Nenhum comprador ou segredo é armazenado; imagens ficam vazias até revisão posterior.
+- Aplique primeiro `sql/updates/20261024_affiliate_product_staging.sql` e, depois de criar as tabelas principais, **uma vez** `sql/updates/20261024_affiliate_staging_publication.sql`. A segunda migração acrescenta duas colunas e uma chave única à tabela de revisão; não apaga produtos existentes.
+- Testes: `php tests/test_affiliate_staging_publication.php` (validações sem MySQL; para integração configure `TEST_DB_DSN` restrito ao banco `cupons_test`). A workflow `affiliate-staging.yml` executa PHP 8.3/8.4 com MySQL 8.
+- **Limitações:** não há isolamento por vendedor (item 10), sincronização automática, fotos, aprovação por múltiplos usuários, conciliação de comissões nem testes com credenciais reais. Não configurar contas de vendedores diferentes neste ambiente. A publicação manual não verifica a titularidade do checkout externo; o editor deve conferi-lo.
+- O requisito 3 continua **parcial**. Próximo desenvolvimento: conciliação segura de comissões e conectores adicionais, sem importar dados pessoais.
