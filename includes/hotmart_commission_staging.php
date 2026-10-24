@@ -185,6 +185,12 @@ final class HotmartCommissionStaging
         return HotmartCommissionObservationHistory::retentionInventory($pdo, self::scope($ucode, $key));
     }
 
+    /** Diagnóstico local sem ajustes financeiros nem exposição de identificadores. */
+    public static function integrityInventory(PDO $pdo, string $ucode, string $key): array
+    {
+        return HotmartCommissionObservationHistory::integrityInventory($pdo, self::scope($ucode, $key));
+    }
+
     /** Somente contagens, sem hashes nem valores identificáveis de transação. */
     public static function counts(PDO $pdo, string $ucode, string $key): array
     {
