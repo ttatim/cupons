@@ -5,6 +5,9 @@ on:
     paths:
       - 'includes/affiliate_product_staging.php'
       - 'includes/affiliate_product_review.php'
+      - 'includes/affiliate_product_publication.php'
+      - 'sql/updates/20261024_affiliate_product_publication.sql'
+      - 'tests/test_affiliate_product_publication.php'
       - 'sql/updates/20261024_affiliate_product_review.sql'
       - 'tests/test_affiliate_product_review.php'
       - 'includes/affiliate_import_page.php'
@@ -18,6 +21,9 @@ on:
     paths:
       - 'includes/affiliate_product_staging.php'
       - 'includes/affiliate_product_review.php'
+      - 'includes/affiliate_product_publication.php'
+      - 'sql/updates/20261024_affiliate_product_publication.sql'
+      - 'tests/test_affiliate_product_publication.php'
       - 'sql/updates/20261024_affiliate_product_review.sql'
       - 'tests/test_affiliate_product_review.php'
       - 'includes/affiliate_import_page.php'
@@ -60,10 +66,12 @@ jobs:
         run: |
           php -l includes/affiliate_product_staging.php
           php -l includes/affiliate_product_review.php
+          php -l includes/affiliate_product_publication.php
           php -l includes/affiliate_import_page.php
           php -l admin/integracoes-afiliados.php
           php -l tests/test_affiliate_product_staging.php
           php -l tests/test_affiliate_product_review.php
+          php -l tests/test_affiliate_product_publication.php
           php -l tests/test_affiliate_import_page.php
       - name: Validate manual pagination
         run: php tests/test_affiliate_import_page.php
@@ -75,3 +83,4 @@ jobs:
         run: |
           php tests/test_affiliate_product_staging.php
           php tests/test_affiliate_product_review.php
+          php tests/test_affiliate_product_publication.php

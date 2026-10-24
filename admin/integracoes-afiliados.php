@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/affiliate_integrations.php';
 require_once __DIR__ . '/../includes/affiliate_product_staging.php';
 require_once __DIR__ . '/../includes/affiliate_import_page.php';
 require_once __DIR__ . '/../includes/affiliate_product_review.php';
+require_once __DIR__ . '/../includes/affiliate_product_publication.php';
 
 if (!isLoggedIn()) {
     header('Location: login.php');
@@ -19,6 +20,9 @@ $stagingResult = null;
 $kiwifyPage = 1;
 $stagedProducts = null;
 $reviewSaved = false;
+$publishedProductId = null;
+$publishedMap = [];
+$publicationReady = false;
 $reviewStores = [];
 $monetizzeChecked = false;
 $error = null;
@@ -48,6 +52,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             AffiliateProductReview::saveKiwify($pdo, trim((string) getenv('KIWIFY_ACCOUNT_ID')), $externalId, $_POST);
             $stagedProducts = AffiliateProductStaging::listKiwify($pdo, trim((string) getenv('KIWIFY_ACCOUNT_ID')));
             $reviewSaved = true;
+        } elseif ($action === 'kiwify_publish') {
+            $externalId = $_POST['external_id'] ?? null;
+            if (!is_string($externalId)) {
+                throw new InvalidArgumentException('Identificador externo inválido.');
+            }
+            $publishedProductId = AffiliateProductPublication::publishKiwify(
+                $pdo, trim((string) getenv('KIWIFY_ACCOUNT_ID')), $externalId
+            );
+            $stagedProducts = AffiliateProductStaging::listKiwify($pdo, trim((string) getenv('KIWIFY_ACCOUNT_ID')));
         } elseif ($action === 'monetizze_check') {
             $monetizzeChecked = (new MonetizzeIntegration())->checkConnection();
         } else {
@@ -55,12 +68,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } catch (Throwable $exception) {
         $error = $exception instanceof PDOException
-            ? 'Não foi possível salvar o catálogo. Confira as migrações affiliate_product_staging e affiliate_product_review e as permissões do banco.'
+            ? 'Não foi possível acessar o catálogo. Confira as migrações de staging, revisão e publicação e as permissões do banco.'
             : $exception->getMessage();
     }
 }
 if ($stagedProducts !== null) {
     $reviewStores = $pdo->query('SELECT id, nome FROM lojas ORDER BY nome LIMIT 200')->fetchAll(PDO::FETCH_ASSOC);
+    try {
+        $publishedMap = AffiliateProductPublication::publicationMap($pdo, trim((string) getenv('KIWIFY_ACCOUNT_ID')));
+        $publicationReady = true;
+    } catch (PDOException $exception) {
+        $error = 'Publicação indisponível: aplique a migração affiliate_product_publication.sql.';
+    }
 }
 function hAffiliate(string $value): string
 {
@@ -153,6 +172,9 @@ function hAffiliate(string $value): string
                     <?php if ($reviewSaved): ?>
                         <div class="alert alert-success mt-3">Dados de revisão salvos. O produto continua fora da vitrine.</div>
                     <?php endif; ?>
+                    <?php if ($publishedProductId !== null): ?>
+                        <div class="alert alert-success mt-3">Produto #<?= (int) $publishedProductId ?> publicado na vitrine após revisão manual.</div>
+                    <?php endif; ?>
                     <?php if ($stagedProducts !== null): ?>
                         <h3 class="h6 mt-3">Registros em revisão (até 20 mais recentes)</h3>
                         <div class="table-responsive"><table class="table table-sm">
@@ -164,7 +186,10 @@ function hAffiliate(string $value): string
                         <p class="small text-muted">Os campos abaixo são editáveis apenas na área administrativa. Salvar não publica o produto nem consulta os links.</p>
                         <?php foreach ($stagedProducts as $item): ?>
                             <details class="border rounded p-3 mb-2">
-                                <summary><?= hAffiliate((string) $item['name']) ?> — editar revisão</summary>
+                                <summary><?= hAffiliate((string) $item['name']) ?> — revisão e publicação</summary>
+                                <?php if (isset($publishedMap[(string) $item['external_id']])): ?>
+                                    <div class="alert alert-success mt-2">Já publicado: produto #<?= (int) $publishedMap[(string) $item['external_id']] ?>. Alterações posteriores no staging não atualizam a oferta pública.</div>
+                                <?php else: ?>
                                 <form method="post" class="row g-2 mt-2">
                                     <input type="hidden" name="csrf_token" value="<?= hAffiliate($csrfToken) ?>">
                                     <input type="hidden" name="action" value="kiwify_review_save">
@@ -200,6 +225,16 @@ function hAffiliate(string $value): string
                                     </div>
                                     <div class="col-12"><button type="submit" class="btn btn-primary">Salvar revisão (não publicar)</button></div>
                                 </form>
+                                <?php if ($publicationReady): ?>
+                                    <form method="post" class="mt-3" onsubmit="return confirm('Confirma a publicação desta oferta na vitrine? Confira preço, loja e link de afiliado antes.');">
+                                        <input type="hidden" name="csrf_token" value="<?= hAffiliate($csrfToken) ?>">
+                                        <input type="hidden" name="action" value="kiwify_publish">
+                                        <input type="hidden" name="external_id" value="<?= hAffiliate((string) $item['external_id']) ?>">
+                                        <button type="submit" class="btn btn-success">Publicar oferta revisada</button>
+                                        <p class="small text-muted mt-1">Exige status active, moeda BRL, descrição com 20 caracteres, preço, loja e checkout HTTPS válido. A publicação não é reversível por este painel.</p>
+                                    </form>
+                                <?php endif; ?>
+                                <?php endif; ?>
                             </details>
                         <?php endforeach; ?>
                     <?php endif; ?>

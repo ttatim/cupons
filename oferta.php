@@ -11,7 +11,7 @@ if (!$id || $id < 1) {
 
 $stmt = $pdo->prepare('SELECT p.id, p.nome, p.descricao, p.preco, p.preco_original, p.imagens, l.nome AS loja_nome
     FROM produtos p INNER JOIN lojas l ON l.id = p.loja_id
-    WHERE p.id = ? AND p.ativo = 1 AND l.ativo = 1 LIMIT 1');
+    WHERE p.id = ? AND p.ativo = 1 LIMIT 1');
 $stmt->execute([$id]);
 $produto = $stmt->fetch(PDO::FETCH_ASSOC);
 

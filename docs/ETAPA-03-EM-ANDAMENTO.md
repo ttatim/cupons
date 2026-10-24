@@ -86,3 +86,17 @@
 - **Migração obrigatória:** execute sql/updates/20261024_affiliate_product_review.sql após sql/updates/20261024_affiliate_product_staging.sql. A migração adiciona campos opcionais e referência à tabela lojas, sem inserir dados de exemplo. Faça backup antes de aplicar em banco existente.
 - **Testes:** php tests/test_affiliate_product_review.php valida entradas mesmo sem banco; com TEST_DB_DSN apontando para cupons_test, testa gravação, isolamento entre contas, rollback e preservação no upsert. A workflow affiliate-staging.yml executa o teste com MySQL 8 e PHP 8.3/8.4.
 - **Limitações:** não existe botão de publicação; checkout e imagens são URLs fornecidas pelo operador, não verificadas por conexão externa. Ainda faltam autorização por vendedor, publicação supervisionada, sincronização de comissões e homologação com credenciais reais.
+
+
+## Complemento: publicação supervisionada de produtos Kiwify (24/10/2026)
+
+- O painel **Integração > Afiliados > Ver catálogo em revisão** agora oferece **Publicar oferta revisada**, uma ação explícita com sessão administrativa, token CSRF e confirmação do operador. Salvar revisão continua sem publicar.
+- A publicação usa **exclusivamente os campos previamente salvos na revisão**, não valores arbitrários enviados no pedido de publicação. Exige produto de origem com status `active`, moeda `BRL`, descrição de pelo menos 20 caracteres, preço maior que zero, checkout HTTPS de domínio público aceito também por `go.php` e loja existente.
+- Imagem HTTPS e preço original são opcionais; quando presentes, são transferidos para o produto. O operador deve conferir manualmente a legitimidade do link de checkout/afiliado: **o sistema não verifica titularidade do link**.
+- A transação MySQL utiliza `SELECT ... FOR UPDATE` e associa o registro de revisão ao ID publicado, evitando duplicações em requisições simultâneas e preservando a associação em novas importações. Produtos publicados são identificados na interface; a revisão não atualiza automaticamente uma oferta já publicada.
+- **Migração obrigatória e única:** após `sql/database.sql`, `20261024_affiliate_product_staging.sql` e `20261024_affiliate_product_review.sql`, executar `sql/updates/20261024_affiliate_product_publication.sql`. Faça backup antes de migrar bancos existentes. A migração adiciona associação e índice únicos, sem inserir registros reais.
+- **Testes:** `php tests/test_affiliate_product_publication.php` verifica entradas inseguras e incompletas. Com `TEST_DB_DSN` restrito a `dbname=cupons_test`, valida transação, isolamento entre contas, ausência de duplicação e reimportação. O CI testa PHP 8.3/8.4 com MySQL 8.
+- **Limitações:** a publicação não faz conciliação de comissões, não valida a titularidade dos checkouts, não faz moderação por múltiplos administradores e não implementa segregação por vendedor (item 10). Não configurar credenciais de vendedores diferentes até essa etapa. Nenhuma integração real com a API foi homologada.
+- O PR #7 anterior permanece incompatível com o schema atual e não deve ser mesclado sem rebase/revisão; esta implementação foi reconstruída a partir da `main` atual, respeitando as colunas existentes de `produtos` e `lojas`.
+
+- Corrigida a consulta de `oferta.php`: o schema atual de `lojas` não possui a coluna `ativo`. A página de detalhes passa a filtrar apenas a atividade do produto, mantendo a associação com a loja cadastrada.
