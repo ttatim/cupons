@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/affiliate_admin_access.php';
 require_once __DIR__ . '/../includes/affiliate_integrations.php';
 require_once __DIR__ . '/../includes/affiliate_product_staging.php';
 require_once __DIR__ . '/../includes/affiliate_import_page.php';
@@ -11,9 +12,29 @@ require_once __DIR__ . '/../includes/hotmart_commission_staging.php';
 require_once __DIR__ . '/../includes/hotmart_commission_reconciliation_preflight.php';
 require_once __DIR__ . '/../includes/hotmart_commission_stage_pagination.php';
 
+header('X-Content-Type-Options: nosniff');
+header('Cache-Control: no-store, private');
+header('Referrer-Policy: no-referrer');
 if (!isLoggedIn()) {
     header('Location: login.php');
     exit;
+}
+// Until per-seller credentials and tenant isolation exist, every provider API,
+// staging, review and publication action is administrator-only. A session alone
+// is not authorization: re-check the active role in the database on every hit.
+try {
+    AffiliateAdminAccess::requireActiveAdmin(
+        $_SESSION,
+        static function (int $userId) use ($pdo): ?string {
+            $stmt = $pdo->prepare('SELECT nivel FROM usuarios WHERE id = :id AND ativo = 1');
+            $stmt->execute([':id' => $userId]);
+            $role = $stmt->fetchColumn();
+            return is_string($role) ? $role : null;
+        }
+    );
+} catch (Throwable $exception) {
+    http_response_code(403);
+    exit('Acesso restrito a administradores ativos.');
 }
 $statuses = AffiliateIntegrations::status();
 $csrfToken = Security::generateCSRFToken();
