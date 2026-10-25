@@ -47,6 +47,11 @@ final class KiwifyIntegration
         if (!isset($response['data']) || !is_array($response['data']) || !array_is_list($response['data'])) {
             throw new RuntimeException('Resposta Kiwify sem lista de produtos válida.');
         }
+        // A paginação limita também a quantidade aceita da API, não apenas a solicitada.
+        // Uma resposta acima do limite nunca deve ser enviada ao painel nem ao staging.
+        if (count($response['data']) > $pageSize) {
+            throw new RuntimeException('Kiwify retornou mais produtos que o limite solicitado.');
+        }
         return [
             'data' => $response['data'],
             'pagination' => is_array($response['pagination'] ?? null) ? $response['pagination'] : [],
