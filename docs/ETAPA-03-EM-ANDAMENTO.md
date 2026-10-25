@@ -226,3 +226,11 @@
 - O verificador é local, sem endpoint HTTP, persistência, alteração de banco ou uso financeiro. `relay_authenticated` significa apenas assinatura do relay validada; `authenticated` e `financial_ready` permanecem falsos.
 - O callback de replay precisa ser durável antes de uso operacional; o teste usa simulação em memória. A autenticação upstream e homologação oficial seguem bloqueadas.
 - Teste `php tests/test_monetizze_signed_relay_review.php` na matriz PHP 8.3/8.4; documentação do protocolo em [ETAPA-03-MONETIZZE-WEBHOOK-PREPARACAO.md](ETAPA-03-MONETIZZE-WEBHOOK-PREPARACAO.md).
+
+## Correção de autorização do console de integrações (25/10/2026)
+
+- Identificada uma lacuna: a página `admin/integracoes-afiliados.php` exigia apenas sessão autenticada, permitindo que perfis sem autorização administrativa tentassem consultas de APIs, staging, revisão e publicação Kiwify. Algumas ações Hotmart já possuíam verificações específicas, mas não havia uma barreira uniforme antes de processar qualquer ação.
+- A página agora aplica `AffiliateAdminAccess::requireActiveAdmin` **antes** de consultar integrações ou executar ações, com consulta parametrizada a `usuarios.nivel='admin'` e `ativo=1` em **toda requisição**. Anônimos seguem para login; editores, usuários desativados e sessões inválidas recebem HTTP 403, inclusive em POST. Falhas de banco negam acesso sem revelar detalhes.
+- A área permanece exclusivamente administrativa até existir isolamento de contas, credenciais e produtos por vendedor (requisito 10). **Não** foi concedido acesso a vendedores, nem habilitada conciliação financeira ou postback Monetizze.
+- Verificações: `php tests/test_affiliate_admin_access.php` sem banco; testes HTTP sintéticos acrescentados a `tests/test_monetizze_admin_http_e2e.php` para anônimo, administrador ativo, editor, tentativa de publicação e revogação de acesso durante sessão. CI executa testes em PHP 8.3/8.4 e MySQL 8.
+- Sem migrações adicionais, dados reais, credenciais de fornecedor ou alteração no esquema. Homologação de origem Monetizze permanece pendente.
