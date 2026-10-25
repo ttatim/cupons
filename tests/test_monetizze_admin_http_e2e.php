@@ -165,6 +165,8 @@ try {
 
     [$status, , $headers] = $http('/admin/monetizze-revisao.php', $cookies['guest']);
     reviewHttpCheck($status === 302 && str_contains($headers, 'Location: login.php'), 'acesso anônimo redirecionado');
+    [$status, , $headers] = $http('/admin/integracoes-afiliados.php', $cookies['guest']);
+    reviewHttpCheck($status === 302 && str_contains($headers, 'Location: login.php'), 'integrações: anônimo redirecionado');
 
     $login = static function (string $username, string $cookie) use ($http, $hidden, $password): void {
         [$status, $html] = $http('/admin/login.php', $cookie);
@@ -176,6 +178,9 @@ try {
         reviewHttpCheck($status === 302 && str_contains($headers, 'Location: dashboard.php'), 'login válido');
     };
     $login($adminName, $cookies['admin']);
+    [$status, $html] = $http('/admin/integracoes-afiliados.php', $cookies['admin']);
+    reviewHttpCheck($status === 200 && str_contains($html, 'Integrações de afiliados'),
+        'integrações: administrador ativo autorizado');
     [$status, $html] = $http('/admin/monetizze-revisao.php', $cookies['admin']);
     reviewHttpCheck($status === 200 && str_contains($html, '?review_id=' . $reviewId), 'fila da conta correta');
     reviewHttpCheck(!str_contains($html, '?review_id=' . $otherId), 'candidato de outra conta oculto');
@@ -207,13 +212,24 @@ try {
     reviewHttpCheck($status === 400 && !str_contains($html, 'request_evidence'), 'histórico de outra conta negado');
 
     $login($editorName, $cookies['editor']);
+    [$status] = $http('/admin/integracoes-afiliados.php', $cookies['editor']);
+    reviewHttpCheck($status === 403, 'integrações: editor não pode consultar credenciais e catálogo');
+    [$status] = $http('/admin/integracoes-afiliados.php', $cookies['editor'], [
+        'action' => 'kiwify_publish', 'external_id' => 'synthetic', 'csrf_token' => 'invalid',
+    ]);
+    reviewHttpCheck($status === 403, 'integrações: editor não pode publicar nem chamar API');
     [$status] = $http('/admin/monetizze-revisao.php', $cookies['editor']);
     reviewHttpCheck($status === 403, 'editor não pode consultar');
     [$status] = $http('/admin/monetizze-revisao.php', $cookies['editor'], $form);
     reviewHttpCheck($status === 403, 'editor não pode decidir');
     $count->execute([$reviewId]);
     reviewHttpCheck((int) $count->fetchColumn() === 1, 'negação não altera auditoria');
+    $deactivate = $pdo->prepare('UPDATE usuarios SET ativo = 0 WHERE id = ?');
+    $deactivate->execute([$adminId]);
+    [$status] = $http('/admin/integracoes-afiliados.php', $cookies['admin']);
+    reviewHttpCheck($status === 403, 'integrações: administrador revogado perde acesso imediatamente');
     echo "Monetizze admin HTTP: login, sessão, CSRF, autorização, isolamento, idempotência e triagem aprovados.\n";
+    echo "Affiliate admin HTTP: anônimo, editor, publicação indevida e administrador revogado bloqueados.\n";
 } finally {
     $cleanup();
 }
