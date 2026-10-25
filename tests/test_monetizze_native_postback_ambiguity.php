@@ -40,14 +40,14 @@ ambiguityReject(substr($raw, 0, -1) . ',"\u0069d":"injected"}', $account, 'id du
 ambiguityReject(substr($raw, 0, -1) . ',"outro":1,"outro":2}', $account, 'campo extra duplicado');
 
 $atLimit = $event;
-for ($i = 0; $i < 196; $i++) {
+for ($i = 0; $i < 195; $i++) {
     $atLimit['extra_' . $i] = $i;
 }
 ambiguityAssert(
     MonetizzeNativePostbackPreview::preview(json_encode($atLimit, JSON_THROW_ON_ERROR), 'application/json', $account)['risk'] === 1,
     'limite de 200 campos permitido'
 );
-$atLimit['extra_196'] = 196;
+$atLimit['extra_195'] = 195;
 ambiguityReject(json_encode($atLimit, JSON_THROW_ON_ERROR), $account, '201 campos JSON');
 ambiguityAssert(
     MonetizzeNativePostbackPreview::preview(" \n " . $raw . " \t ", 'application/json', $account)['risk'] === 1,
