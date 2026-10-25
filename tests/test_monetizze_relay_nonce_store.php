@@ -23,11 +23,8 @@ function nonceReject(Closure $operation, string $message): void
 
 $dsn = (string) getenv('TEST_DB_DSN');
 if ($dsn === '') {
-    // No database access is needed to verify input validation.
-    nonceReject(static fn() => MonetizzeRelayNonceStore::claim(
-        new PDO('sqlite::memory:'), 'not-a-nonce', 1
-    ), 'nonce inválido');
-    echo "Monetizze nonce: validação aprovada; MySQL não executado (TEST_DB_DSN ausente).\n";
+    // Integration requires a disposable MySQL database; no fallback to in-memory storage.
+    echo "Monetizze nonce: integração MySQL não executada (TEST_DB_DSN ausente).\n";
     exit(0);
 }
 if (!preg_match('/(?:^|;)dbname=cupons_test(?:;|$)/', $dsn)) {
