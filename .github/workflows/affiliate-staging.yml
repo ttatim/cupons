@@ -42,6 +42,8 @@ on:
       - 'admin/monetizze-revisao.php'
       - 'admin/includes/sidebar.php'
       - 'tests/test_monetizze_admin_review_access.php'
+      - 'includes/monetizze_native_postback_preview.php'
+      - 'tests/test_monetizze_native_postback_preview.php'
       - '.github/workflows/affiliate-staging.yml'
   push:
     branches: [main]
@@ -85,6 +87,8 @@ on:
       - 'admin/monetizze-revisao.php'
       - 'admin/includes/sidebar.php'
       - 'tests/test_monetizze_admin_review_access.php'
+      - 'includes/monetizze_native_postback_preview.php'
+      - 'tests/test_monetizze_native_postback_preview.php'
       - '.github/workflows/affiliate-staging.yml'
 
 jobs:
@@ -147,11 +151,14 @@ jobs:
           php -l includes/monetizze_admin_review_access.php
           php -l admin/monetizze-revisao.php
           php -l tests/test_monetizze_admin_review_access.php
+          php -l includes/monetizze_native_postback_preview.php
+          php -l tests/test_monetizze_native_postback_preview.php
       - name: Validate manual pagination
         run: |
           php tests/test_affiliate_import_page.php
           php tests/test_hotmart_commission_stage_pagination.php
           php tests/test_monetizze_admin_review_access.php
+          php tests/test_monetizze_native_postback_preview.php
       - name: MySQL staging integration tests
         env:
           TEST_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=cupons_test;charset=utf8mb4'
