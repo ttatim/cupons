@@ -256,3 +256,9 @@
 - Uma resposta excessiva gera erro genérico, sem devolver o payload ao painel nem permitir sua importação para o staging. A ação permanece manual, somente leitura na consulta e sem sincronização automática.
 - Regressão sintética: `php tests/test_kiwify_integration.php`, incluindo resposta com 11 itens para limite de 10. O teste roda no CI PHP 8.3/8.4; nenhuma credencial real é necessária.
 - Nenhuma migração SQL, dependência ou configuração adicional. A autenticação real e a titularidade da conta continuam sem homologação; a Monetizze permanece bloqueada para conciliação financeira.
+
+## Complemento: limite de resultados do sumário Hotmart (25/10/2026)
+
+- A consulta somente leitura `hotmartSalesSummary()` agora rejeita `items` que não seja uma lista JSON e respostas com mais elementos do que `max_results` solicitado. O limite também é validado na resposta, impedindo que uma API inconsistente encaminhe resultados excessivos ao painel.
+- Testes sintéticos verificam rejeição de 11 itens quando solicitados 10, rejeição de objeto associativo em `items` e aceitação de exatamente 10 itens. Executar `php tests/test_affiliate_integrations.php`; CI PHP 8.3/8.4 executa o mesmo teste.
+- Nenhuma migração SQL, credencial real, alteração financeira ou dependência adicional. A homologação de origem Monetizze continua bloqueada e o item 3 permanece parcial.
