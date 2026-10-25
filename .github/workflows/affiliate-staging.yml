@@ -33,6 +33,8 @@ on:
       - 'includes/monetizze_review_candidate_journal.php'
       - 'sql/updates/20261025_monetizze_review_candidates.sql'
       - 'tests/test_monetizze_review_candidate_journal.php'
+      - 'includes/monetizze_review_queue.php'
+      - 'tests/test_monetizze_review_queue.php'
       - '.github/workflows/affiliate-staging.yml'
   push:
     branches: [main]
@@ -67,6 +69,8 @@ on:
       - 'includes/monetizze_review_candidate_journal.php'
       - 'sql/updates/20261025_monetizze_review_candidates.sql'
       - 'tests/test_monetizze_review_candidate_journal.php'
+      - 'includes/monetizze_review_queue.php'
+      - 'tests/test_monetizze_review_queue.php'
       - '.github/workflows/affiliate-staging.yml'
 
 jobs:
@@ -122,6 +126,8 @@ jobs:
           php -l tests/test_monetizze_status_transition_preview.php
           php -l includes/monetizze_review_candidate_journal.php
           php -l tests/test_monetizze_review_candidate_journal.php
+          php -l includes/monetizze_review_queue.php
+          php -l tests/test_monetizze_review_queue.php
       - name: Validate manual pagination
         run: |
           php tests/test_affiliate_import_page.php
@@ -140,3 +146,4 @@ jobs:
           php tests/test_monetizze_relay_event_staging.php
           php tests/test_monetizze_status_transition_preview.php
           php tests/test_monetizze_review_candidate_journal.php
+          php tests/test_monetizze_review_queue.php
