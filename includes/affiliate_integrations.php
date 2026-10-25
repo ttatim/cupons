@@ -77,8 +77,13 @@ final class AffiliateIntegrations
             'Authorization: Bearer ' . $this->accessToken(),
             'Accept: application/json',
         ]);
-        if (!isset($data['items']) || !is_array($data['items'])) {
-            throw new RuntimeException('Resposta da Hotmart não contém uma lista de resultados.');
+        if (!isset($data['items']) || !is_array($data['items']) || !array_is_list($data['items'])) {
+            throw new RuntimeException('Resposta da Hotmart não contém uma lista válida de resultados.');
+        }
+        // O limite de página deve ser aplicado também à resposta, não apenas à requisição.
+        // Não encaminhar dados excedentes ao painel administrativo.
+        if (count($data['items']) > $maxResults) {
+            throw new RuntimeException('Hotmart retornou mais resultados que o limite solicitado.');
         }
         return ['items' => $data['items'], 'page_info' => is_array($data['page_info'] ?? null) ? $data['page_info'] : []];
     }
