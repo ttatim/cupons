@@ -75,7 +75,8 @@ final class MonetizzeReviewDecisionJournal
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
             }
-            if ($exception instanceof InvalidArgumentException || $exception instanceof RuntimeException) {
+            if ($exception instanceof InvalidArgumentException
+                || ($exception instanceof RuntimeException && !($exception instanceof PDOException))) {
                 throw $exception;
             }
             throw new RuntimeException('Registro de revisão Monetizze indisponível.', 0, $exception);
