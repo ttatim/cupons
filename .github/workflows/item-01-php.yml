@@ -77,6 +77,8 @@ jobs:
         run: php tests/test_monetizze_webhook_review.php
       - name: Monetizze internal signed relay verification tests
         run: php tests/test_monetizze_signed_relay_review.php
+      - name: Monetizze durable nonce storage (MySQL integration runs in affiliate workflow)
+        run: php tests/test_monetizze_relay_nonce_store.php
       - name: Clean install and storefront smoke test
         run: php tests/test_clean_install.php
       - name: Provision initial administrator through CLI
