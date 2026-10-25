@@ -87,6 +87,8 @@ try {
     checkKiwify(str_contains($e->getMessage(), 'inválido'), 'bloqueia injeção de header');
 }
 // Respostas acima do page_size contratado não podem chegar ao staging.
+// Restaurar conta sintética válida após o teste de injeção de cabeçalho.
+putenv('KIWIFY_ACCOUNT_ID=test-account');
 $oversizedCalls = 0;
 $oversizedTransport = static function (string $method, string $url, array $headers, ?string $body) use (&$oversizedCalls): array {
     $oversizedCalls++;
