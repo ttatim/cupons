@@ -75,3 +75,15 @@ O CI de compatibilidade executa o teste em PHP 8.3 e 8.4. Não exige MySQL, cURL
 - Esse bloqueio **não é um histórico completo de alterações de status**. É necessário desenhar a trilha de mudanças legítimas e a revisão humana antes de habilitar conciliação financeira. A falha não contém ID de evento, comprador, conta, valor ou payload.
 - Testes: `php tests/test_monetizze_webhook_review.php` e `php tests/test_monetizze_relay_event_staging.php` (este último exige `cupons_test` MySQL). O CI existente executa os dois testes; sem `TEST_DB_DSN`, a integração MySQL é explicitamente ignorada.
 - **Instalação:** nenhuma migração ou dependência nova. Não existe receptor HTTP, autenticação nativa Monetizze, homologação de eventos reais ou autorização financeira. Não utilizar como webhook de produção.
+
+
+## Incremento: prévia de divergências e riscos de transição (25/10/2026)
+
+- A classe `includes/monetizze_status_transition_preview.php` implementa uma **comparação exclusivamente de leitura** entre um lote local de eventos candidatos e as primeiras observações persistidas em `monetizze_event_observations`.
+- Reutiliza a validação estrita de lotes `MonetizzeWebhookReview::preview` e o HMAC-SHA256 com domínios separados para conta e ID de disparo. Exige MySQL e a mesma `hashKey` estável usada no staging; não aceita chaves curtas ou caracteres de controle.
+- Retorna apenas contagens agregadas: novos, idênticos, divergentes, novos com risco, escaladas de risco, aparente redução de risco **não verificada**, outra conta e duplicatas idênticas. Não retorna IDs, nomes, comprador, valor, token, conta, evento individual ou payload.
+- Um candidato aparentemente positivo **não elimina** um alerta de reembolso/estorno anterior. Divergências continuam bloqueadas no fluxo de persistência existente; esta prévia não altera essa regra, não faz `INSERT`, `UPDATE`, `DELETE`, transação ou alteração de saldos.
+- **Não comprova** que os eventos são legítimos, que existe ordem cronológica, que uma mudança de status ocorreu na Monetizze ou que o operador é titular da conta. `authenticated=false` e `financial_ready=false` são invariantes. Não expor esta prévia como endpoint público ou como autorização financeira.
+- **Testes sintéticos:** `php -l includes/monetizze_status_transition_preview.php` e `php tests/test_monetizze_status_transition_preview.php`. A integração exige `TEST_DB_DSN` apontando exclusivamente para `dbname=cupons_test`, `TEST_DB_USER` e `TEST_DB_PASSWORD`; sem DSN, informa que o teste MySQL não foi executado. CI `affiliate-staging.yml` testa em PHP 8.3 e 8.4 com MySQL 8.
+- **Instalação:** nenhuma migração ou dependência adicional nesta subetapa; requer a migração `sql/updates/20261024_monetizze_event_observations.sql` já aplicada. Não há alteração de registros reais.
+- **Próximos bloqueios:** autenticação nativa de origem Monetizze, semântica real dos eventos, comprovação de titularidade, fluxo de revisão humana e histórico cronológico append-only com autorização por vendedor. Sem essas etapas, não existe conciliação financeira.
