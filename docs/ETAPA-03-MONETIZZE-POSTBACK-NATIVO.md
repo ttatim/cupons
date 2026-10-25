@@ -80,3 +80,11 @@ A documentação e o código não habilitam endpoint de recebimento externo.
 - Execução: configure `TEST_DB_DSN='mysql:host=127.0.0.1;port=3306;dbname=cupons_test;charset=utf8mb4'`, `TEST_DB_USER` e `TEST_DB_PASSWORD` para um banco **descartável**, e execute `php tests/test_monetizze_admin_http_e2e.php`. Sem DSN, o teste é explicitamente ignorado fora do CI e falha dentro do GitHub Actions.
 - O workflow `affiliate-staging.yml` executa o teste com PHP 8.3 e 8.4 + MySQL 8, além do lint. Exige extensões `curl` e `pdo_mysql` e `proc_open` apenas no executor de testes.
 - A validação cobre HTTP/HTML/cookies/CSRF via cURL, **não é automação de navegador visual**. Não comprova autenticação upstream da Monetizze, não habilita recebimento público, não reconcilia comissões e não concede permissão financeira.
+
+
+## Endurecimento do cabeçalho Content-Type (25/10/2026)
+
+- A prévia nativa de postbacks agora aceita **somente** `application/json` ou `application/x-www-form-urlencoded`, com parâmetro opcional único `charset=utf-8` (inclusive entre aspas e sem diferenciação de maiúsculas/minúsculas).
+- Rejeita charsets alternativos, parâmetros MIME adicionais ou repetidos, CR/LF em cabeçalhos e valores superiores a 128 bytes. O parser **não converte codificações**: espera bytes UTF-8.
+- A validação ocorre antes da interpretação do corpo e não reserva nonce, não grava registros e não altera status financeiro. Nenhuma rota pública foi criada e a origem Monetizze **continua não autenticada**.
+- Regressão: `php tests/test_monetizze_native_postback_preview.php` (PHP 8.3/8.4 no CI). Não há migração SQL nem dependência adicional.
