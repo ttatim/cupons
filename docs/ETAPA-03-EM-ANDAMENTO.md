@@ -242,3 +242,10 @@
 - Mensagens de erro não incluem credenciais, tokens, corpo de resposta ou URL com parâmetros de autenticação.
 - Regressão: php tests/test_affiliate_integrations.php, com transporte simulado e cenários de CR/LF, credencial excessiva e token com espaços. Nenhuma credencial real, migração ou rota pública foi adicionada.
 - Homologação Monetizze upstream e credenciais reais de fornecedores continuam pendentes. Esta proteção não habilita conciliação financeira.
+
+## Proteção do token OAuth Kiwify (25/10/2026)
+
+- O adaptador `KiwifyIntegration` agora rejeita tokens Bearer vazios, acima de 8192 bytes, com espaços, caracteres de controle (incluindo CR/LF, tabulação e DEL) ou bytes fora de ASCII visível **antes** de formar o cabeçalho HTTP `Authorization`.
+- Uma resposta OAuth malformada falha de forma segura, sem transmitir token inválido à rota de produtos e sem incluir credenciais ou conteúdo da resposta na mensagem de erro.
+- Regressão sintética: `php tests/test_kiwify_integration.php`, cobrindo Bearer com espaços, tabulação, CR/LF, DEL, vazio e excessivamente longo; o transporte simulado verifica que nenhuma segunda requisição ocorre.
+- Sem credenciais reais, alterações financeiras, endpoint público ou migração. Homologação com provedor e autenticação upstream Monetizze continuam pendentes; não habilita conciliação financeira.
