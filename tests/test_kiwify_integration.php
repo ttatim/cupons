@@ -53,6 +53,32 @@ try {
 } catch (RuntimeException $e) {
     checkKiwify(str_contains($e->getMessage(), '401') && !str_contains($e->getMessage(), 'SECRET-NOT-FOR-LOG'), 'erro seguro');
 }
+// Um Bearer malformado nunca deve ser usado numa segunda requisição HTTP.
+$invalidTokens = [
+    'espaco' => 'token with space',
+    'tab' => "token\twith-tab",
+    'crlf' => "token\r\nX-Test: injected",
+    'del' => "token\x7f",
+    'vazio' => '',
+    'extenso' => str_repeat('a', 8193),
+];
+foreach ($invalidTokens as $label => $badToken) {
+    $calls = 0;
+    $malformedTransport = static function (string $method, string $url, array $headers, ?string $body) use ($badToken, &$calls): array {
+        $calls++;
+        if ($calls !== 1) {
+            throw new RuntimeException('Requisição de produtos enviada com Bearer inválido.');
+        }
+        return ['status' => 200, 'body' => json_encode(['access_token' => $badToken, 'expires_in' => 300], JSON_THROW_ON_ERROR)];
+    };
+    try {
+        (new KiwifyIntegration(Closure::fromCallable($malformedTransport)))->listProducts();
+        throw new RuntimeException('Aceitou Bearer inválido: ' . $label);
+    } catch (RuntimeException $e) {
+        checkKiwify($e->getMessage() === 'Kiwify não retornou token válido.', 'erro seguro para Bearer ' . $label);
+        checkKiwify($calls === 1, 'não consulta produtos com Bearer ' . $label);
+    }
+}
 putenv("KIWIFY_ACCOUNT_ID=bad\r\nX-Test: evil");
 try {
     (new KiwifyIntegration(static fn () => ['status' => 200, 'body' => '{}']))->listProducts();
