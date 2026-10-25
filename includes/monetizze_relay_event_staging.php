@@ -61,10 +61,11 @@ final class MonetizzeRelayEventStaging
                 $status = (int) $event['codigo_status'];
                 $code = (int) $event['postback_evento'];
                 $risk = $code === 9 || in_array($status, [3, 4, 5], true);
+                $eventHash = hash_hmac('sha256', 'monetizze:event:' . $id, $hashKey);
                 try {
                     $insert->execute([
                         ':account_hash' => $accountHash,
-                        ':event_hash' => hash_hmac('sha256', 'monetizze:event:' . $id, $hashKey),
+                        ':event_hash' => $eventHash,
                         ':observed_status' => $status,
                         ':observed_event' => $code,
                         ':review_required' => $risk ? 1 : 0,
@@ -77,7 +78,22 @@ final class MonetizzeRelayEventStaging
                     if (($exception->errorInfo[1] ?? null) !== 1062) {
                         throw new RuntimeException('Persistência Monetizze indisponível.', 0, $exception);
                     }
-                    // Immutable first observation: do not overwrite earlier evidence.
+                    // An existing ID may be a genuine state change or an
+                    // inconsistent relay. Do not silently discard the new
+                    // observation: fail closed until a review workflow exists.
+                    $lookup = $pdo->prepare('SELECT observed_status, observed_event
+                        FROM monetizze_event_observations
+                        WHERE account_hash = :account_hash AND event_hash = :event_hash');
+                    $lookup->execute([
+                        ':account_hash' => $accountHash,
+                        ':event_hash' => $eventHash,
+                    ]);
+                    $previous = $lookup->fetch(PDO::FETCH_ASSOC);
+                    if (!$previous || (int) $previous['observed_status'] !== $status
+                        || (int) $previous['observed_event'] !== $code) {
+                        throw new RuntimeException('Observação Monetizze divergente exige revisão.');
+                    }
+                    // An exact duplicate is idempotent and preserves the first record.
                     $existing++;
                 }
             }
