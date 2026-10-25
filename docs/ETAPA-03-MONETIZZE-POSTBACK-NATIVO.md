@@ -43,3 +43,14 @@ A documentação e o código não habilitam endpoint de recebimento externo.
 - O mesmo teto de 200 campos vale para JSON e formulários. Entradas ambíguas falham sem qualquer gravação; não houve migração SQL.
 - Testes sintéticos verificam duplicações, aliases Unicode, limites de campos, JSON aninhado e ausência de informações pessoais. CI executa o novo teste em PHP 8.3/8.4.
 - **Bloqueio mantido:** essa correção não autentica a origem Monetizze. Não foi criado endpoint HTTP, e o sistema não deve aceitar postbacks externos para fins financeiros até homologação do mecanismo oficial de origem.
+
+
+## Preparação de transporte HTTP para relay interno (25/10/2026)
+
+- Nova classe `includes/monetizze_relay_http_guard.php`, **sem rota HTTP**. É apenas um adaptador puro para validar metadados de uma futura requisição privada antes de delegar à assinatura HMAC-SHA256 do relay interno existente.
+- A chamada `MonetizzeRelayHttpGuard::verifyAndPreview($server, $rawBody, $relaySecret, $accountKey, $claimNonce, $upstreamVerified, $enabled)` começa **bloqueada por padrão**: `$enabled=false` e `$upstreamVerified=false`. Os dois parâmetros são afirmações de configuração de servidor confiável, **nunca** valores de cabeçalhos, query string ou JSON recebidos do cliente.
+- Requer POST, `application/json` com charset UTF-8 opcional, até 64 KiB, Content-Length canônico e consistente (quando presente), corpo sem compressão/Transfer-Encoding e cabeçalhos `X-Monetizze-Relay-Timestamp`, `X-Monetizze-Relay-Nonce` e `X-Monetizze-Relay-Signature`. Validação criptográfica, janela de tempo e proteção contra repetição continuam delegadas ao verificador do relay e ao callback de nonce **atômico e persistente**.
+- A flag `$upstreamVerified` **não comprova a origem** por si só: só poderá ser fornecida como verdadeira depois de verificar independentemente, em uma integração homologada, que o relay de confiança autenticou a Monetizze upstream. Sem esse mecanismo, manter o recurso desabilitado.
+- A resposta mantém `origin_verified=false`, `authenticated=false`, `financial_ready=false`, mesmo quando o HMAC do relay é válido. Não há conciliação, atualização de saldo, receita, pagamento, receptor público, migração SQL ou novas credenciais nesta entrega.
+- Testes sintéticos: `php tests/test_monetizze_relay_http_guard.php` (PHP 8.3/8.4 no CI), incluindo flags desligadas, método/tipo/limites/codificação, adulteração, nonce repetido e ausência de PII. O callback em memória dos testes **não** deve ser usado em produção.
+- **Pendências para um endpoint real:** confirmação e homologação do mecanismo de autenticação upstream da Monetizze, TLS de ponta a ponta, segredo seguro fora do repositório, nonce MySQL compartilhado, monitoramento, proteção contra abuso e testes HTTP E2E. Não expor este adaptador como rota pública.
