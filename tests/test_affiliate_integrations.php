@@ -53,4 +53,54 @@ try {
 } catch (RuntimeException $e) {
     checkAffiliate(!str_contains($e->getMessage(), 'do not print') && str_contains($e->getMessage(), '401'), 'erro não expõe resposta sensível');
 }
+// Cabeçalhos não podem conter CR/LF, mesmo quando as credenciais vêm do ambiente.
+putenv('HOTMART_BASIC_TOKEN=Basic basic-test' . "\r\n" . 'X-Test: injected');
+$called = false;
+try {
+    (new AffiliateIntegrations(static function () use (&$called): array {
+        $called = true;
+        return ['status' => 200, 'body' => '{}'];
+    }))->hotmartSalesSummary();
+    throw new RuntimeException('Aceitou injeção de cabeçalho Basic');
+} catch (RuntimeException $e) {
+    checkAffiliate(str_contains($e->getMessage(), 'inválido'), 'Basic com CRLF rejeitado');
+}
+checkAffiliate(!$called, 'não envia Basic inválido ao transporte');
+
+putenv('HOTMART_BASIC_TOKEN=Basic ' . str_repeat('a', 8193));
+try {
+    (new AffiliateIntegrations(static function () use (&$called): array {
+        $called = true;
+        return ['status' => 200, 'body' => '{}'];
+    }))->hotmartSalesSummary();
+    throw new RuntimeException('Aceitou Basic excessivamente longo');
+} catch (RuntimeException $e) {
+    checkAffiliate(str_contains($e->getMessage(), 'inválido'), 'Basic longo rejeitado');
+}
+checkAffiliate(!$called, 'não envia Basic longo ao transporte');
+
+putenv('HOTMART_BASIC_TOKEN=Basic basic-test');
+$oauthRequests = 0;
+$badBearer = new AffiliateIntegrations(static function () use (&$oauthRequests): array {
+    $oauthRequests++;
+    return ['status' => 200, 'body' => '{"access_token":"safe\\r\\nX-Test: injected","expires_in":3600}'];
+});
+try {
+    $badBearer->hotmartSalesSummary();
+    throw new RuntimeException('Aceitou token Bearer com CRLF');
+} catch (RuntimeException $e) {
+    checkAffiliate(str_contains($e->getMessage(), 'token de acesso válido'), 'Bearer com CRLF rejeitado');
+}
+checkAffiliate($oauthRequests === 1, 'não consulta API de vendas com Bearer inválido');
+
+$spaceBearer = new AffiliateIntegrations(static fn () => [
+    'status' => 200,
+    'body' => '{"access_token":"token com espaco","expires_in":3600}',
+]);
+try {
+    $spaceBearer->hotmartSalesSummary();
+    throw new RuntimeException('Aceitou token Bearer com espaço');
+} catch (RuntimeException $e) {
+    checkAffiliate(str_contains($e->getMessage(), 'token de acesso válido'), 'Bearer com espaço rejeitado');
+}
 echo "Integração Hotmart: testes com transporte simulado aprovados.\n";
