@@ -29,6 +29,19 @@ nativeAssert(!str_contains(json_encode($result), 'PRIVATE-BUYER'), 'não retorna
 $form = http_build_query($event, '', '&', PHP_QUERY_RFC1738);
 $fromForm = $run($form, 'application/x-www-form-urlencoded');
 nativeAssert($fromForm === $result, 'formulário e JSON equivalentes');
+nativeAssert($run($json, 'APPLICATION/JSON; CHARSET="UTF-8"') === $result, 'charset UTF-8 JSON entre aspas');
+nativeAssert($run($form, 'application/x-www-form-urlencoded; charset=UTF-8') === $result, 'charset UTF-8 formulário');
+foreach ([
+    'application/json; charset=iso-8859-1',
+    'application/json; charset=utf-8; foo=bar',
+    'application/json; foo=bar',
+    'application/x-www-form-urlencoded; charset=latin1',
+    'application/x-www-form-urlencoded; boundary=x',
+    "application/json\r\nX-Injected: yes",
+    str_repeat('a', 129),
+] as $invalidType) {
+    nativeReject(static fn() => $run($json, $invalidType), 'content-type ambíguo ou inseguro');
+}
 $other = $event;
 $other['chave_unica'] = str_repeat('c', 32);
 nativeAssert($run(json_encode($other, JSON_THROW_ON_ERROR), 'application/json')['other_account'] === 1, 'outra conta não é aceita');
