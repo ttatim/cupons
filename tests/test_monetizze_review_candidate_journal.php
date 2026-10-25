@@ -110,14 +110,9 @@ try {
     $original = $pdo->prepare('SELECT observed_status, observed_event
         FROM monetizze_event_observations WHERE account_hash = ? AND event_hash = ?');
     $original->execute([$accountHash, $hashId($ids[0])]);
-    journalCheck($original->fetch(PDO::FETCH_NUM) === [2, 2]
-        || (function () use ($pdo, $accountHash, $hashId, $ids): bool {
-            $q = $pdo->prepare('SELECT observed_status, observed_event
-                FROM monetizze_event_observations WHERE account_hash = ? AND event_hash = ?');
-            $q->execute([$accountHash, $hashId($ids[0])]);
-            $r = $q->fetch(PDO::FETCH_NUM);
-            return $r !== false && (int) $r[0] === 2 && (int) $r[1] === 2;
-        })(), 'observação original preservada');
+    $originalRow = $original->fetch(PDO::FETCH_NUM);
+    journalCheck($originalRow !== false && (int) $originalRow[0] === 2
+        && (int) $originalRow[1] === 2, 'observação original preservada');
     $invalid = json_encode([$event($ids[0], $account, '02', '9')], JSON_THROW_ON_ERROR);
     journalReject(static fn() => $run($pdo, $nonces[2], $invalid), 'código ambíguo');
     $different = json_encode([
