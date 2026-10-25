@@ -100,3 +100,15 @@ O CI de compatibilidade executa o teste em PHP 8.3 e 8.4. Não exige MySQL, cURL
 - **Migração incremental:** após `sql/database.sql`, `20261024_monetizze_relay_nonces.sql` e `20261024_monetizze_event_observations.sql`, aplicar **uma vez** `sql/updates/20261025_monetizze_review_candidates.sql`. A tabela é criada vazia; fazer backup antes de migrar bancos em uso. Não apagar dados existentes. Retenção e limpeza dependem de decisão formal.
 - **Testes:** `php -l includes/monetizze_review_candidate_journal.php` e `php tests/test_monetizze_review_candidate_journal.php`. A integração real exige `TEST_DB_DSN` apontando exclusivamente para `dbname=cupons_test`, `TEST_DB_USER` e `TEST_DB_PASSWORD`. Sem DSN o teste declara que não executou MySQL. O CI executa PHP 8.3/8.4 com MySQL 8 e dados sintéticos.
 - **Pendências:** comprovar origem/autenticidade Monetizze, semântica e ordem upstream, autorização por vendedor, interface de revisão com trilha de decisões humanas, retenção, homologação com credenciais autorizadas e conciliação financeira. Não usar em produção como webhook.
+
+
+## Incremento: fila de revisão humana somente leitura (25/10/2026)
+
+- `includes/monetizze_review_queue.php` disponibiliza `MonetizzeReviewQueue::listForAccount(PDO, accountKey, hashKey, afterId=0, limit=25)` para preparar uma **fila interna de revisão**, sem endpoint HTTP, painel público ou decisão/aprovação de eventos.
+- A consulta exige MySQL com PDO em modo de exceção e as tabelas já criadas por `sql/updates/20261025_monetizze_review_candidates.sql`. **Nenhuma migração nova** nesta subetapa.
+- O operador precisa estar **autenticado e autorizado a acessar a conta específica pelo sistema chamador**, antes de fornecer `accountKey` e `hashKey`. A função isola resultados pelo HMAC da conta, mas **não implementa login, autorização por vendedor ou prova de titularidade**. Não a exponha diretamente por HTTP.
+- Paginação keyset por `id` local crescente, com `afterId >= 0`, `limit` entre 1 e 100, `has_more` e `next_after_id`. Não usa `OFFSET` nem interpola o limite na consulta SQL.
+- Cada item contém apenas ID **local** de revisão, códigos numéricos originais/candidatos, direção de risco preliminar e data de **primeira observação local**. Não retorna hashes, IDs externos, conta, comprador, CPF, e-mail, valores, token ou payload.
+- Não executa `INSERT`, `UPDATE`, `DELETE`, aprovações, ajustes de saldo, conciliação ou pagamentos. A saída mantém `authenticated=false`, `financial_ready=false` e `read_only=true`. Nenhum item da fila deve ser considerado fato financeiro validado.
+- **Testes sintéticos:** `php -l includes/monetizze_review_queue.php` e `php tests/test_monetizze_review_queue.php`. A integração MySQL só roda com `TEST_DB_DSN` contendo `dbname=cupons_test`, `TEST_DB_USER` e `TEST_DB_PASSWORD`; sem isso o teste informa que foi ignorado. O CI testa PHP 8.3/8.4 com MySQL 8.
+- **Próximas decisões:** estabelecer autorização por vendedor/conta, interface de revisão e auditoria de decisões humanas, validação de origem upstream e de cronologia, política de retenção e homologação autorizada. **Nenhuma aprovação financeira automática foi implementada.**
