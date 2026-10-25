@@ -103,4 +103,48 @@ try {
 } catch (RuntimeException $e) {
     checkAffiliate(str_contains($e->getMessage(), 'token de acesso válido'), 'Bearer com espaço rejeitado');
 }
+// Uma resposta de sumário não pode ultrapassar o max_results solicitado.
+$oversizedSummaryCalls = 0;
+$oversizedSummary = new AffiliateIntegrations(static function () use (&$oversizedSummaryCalls): array {
+    $oversizedSummaryCalls++;
+    if ($oversizedSummaryCalls === 1) {
+        return ['status' => 200, 'body' => '{"access_token":"synthetic-token","expires_in":300}'];
+    }
+    return ['status' => 200, 'body' => json_encode([
+        'items' => array_fill(0, 11, ['total_items' => 1]),
+    ], JSON_THROW_ON_ERROR)];
+});
+try {
+    $oversizedSummary->hotmartSalesSummary(10);
+    throw new RuntimeException('Aceitou sumário Hotmart acima do limite');
+} catch (RuntimeException $e) {
+    checkAffiliate($e->getMessage() === 'Hotmart retornou mais resultados que o limite solicitado.', 'rejeita sumário acima do limite');
+}
+checkAffiliate($oversizedSummaryCalls === 2, 'limite aplicado após a consulta de sumário');
+
+// Um objeto indexado não é uma lista de itens e não pode ser tratado como tal.
+$invalidSummary = new AffiliateIntegrations(static function (string $method, string $url): array {
+    if (str_contains($url, '/oauth/token')) {
+        return ['status' => 200, 'body' => '{"access_token":"synthetic-token","expires_in":300}'];
+    }
+    return ['status' => 200, 'body' => '{"items":{"unexpected":{"total_items":1}}}'];
+});
+try {
+    $invalidSummary->hotmartSalesSummary(10);
+    throw new RuntimeException('Aceitou sumário Hotmart com items não-lista');
+} catch (RuntimeException $e) {
+    checkAffiliate($e->getMessage() === 'Resposta da Hotmart não contém uma lista válida de resultados.', 'rejeita items não-lista');
+}
+
+// O limite exato continua válido, preservando a consulta legítima.
+$boundarySummary = new AffiliateIntegrations(static function (string $method, string $url): array {
+    if (str_contains($url, '/oauth/token')) {
+        return ['status' => 200, 'body' => '{"access_token":"synthetic-token","expires_in":300}'];
+    }
+    return ['status' => 200, 'body' => json_encode([
+        'items' => array_fill(0, 10, ['total_items' => 1]),
+    ], JSON_THROW_ON_ERROR)];
+});
+checkAffiliate(count($boundarySummary->hotmartSalesSummary(10)['items']) === 10, 'aceita limite exato do sumário');
+
 echo "Integração Hotmart: testes com transporte simulado aprovados.\n";
