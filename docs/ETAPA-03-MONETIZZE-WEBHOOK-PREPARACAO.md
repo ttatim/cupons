@@ -136,3 +136,12 @@ O CI de compatibilidade executa o teste em PHP 8.3 e 8.4. Não exige MySQL, cURL
 - **Migrações necessárias:** `20261024_monetizze_relay_nonces.sql`, `20261024_monetizze_event_observations.sql`, `20261025_monetizze_review_candidates.sql` e `20261025_monetizze_review_decisions.sql`, aplicadas após o schema inicial e na ordem indicada. Este incremento **não cria nem altera tabelas** e não insere dados de demonstração.
 - **Testes:** `php -l admin/monetizze-revisao.php`, `php -l includes/monetizze_admin_review_access.php`, `php tests/test_monetizze_admin_review_access.php`, além dos testes MySQL de fila e decisões existentes. A validação automatizada de interface HTTP com banco real e navegador **ainda é pendente**.
 - **Bloqueios operacionais:** autenticação da origem Monetizze, homologação com conta autorizada, segregação multi-vendedor e política de retenção. Não utilizar os registros para movimentação financeira.
+
+
+## Segurança do JSON assinado pelo relay (25/10/2026)
+
+- A validação do HMAC protege os bytes recebidos, mas não elimina ambiguidades de interpretação: o `json_decode` do PHP substitui silenciosamente chaves repetidas. Isso pode ocultar diferenças entre parsers do relay e da aplicação.
+- `MonetizzeSignedRelayReview::verifyAndPreview` agora rejeita chaves JSON duplicadas em **todos os objetos do lote**, inclusive estruturas aninhadas e nomes equivalentes codificados com escapes Unicode, **antes de reservar o nonce**. O scanner não armazena dados pessoais; continua valendo o limite de 64 KiB e profundidade JSON 16.
+- O controle vale também para a persistência de observações, pois `MonetizzeRelayEventStaging` utiliza o mesmo verificador antes da gravação. Em caso de rejeição, a transação não é confirmada.
+- Regressão sintética: `php tests/test_monetizze_relay_json_ambiguity.php`. O workflow `affiliate-staging.yml` inclui esse teste na matriz PHP 8.3/8.4 e dispara também quando o verificador assinado muda.
+- **Limites inalterados:** a assinatura HMAC comprova somente o relay interno, não a origem Monetizze; não foi criado endpoint HTTP, não há autenticação upstream homologada, conciliação ou autorização financeira. Nenhuma migração SQL nem segredo operacional foi adicionado.
