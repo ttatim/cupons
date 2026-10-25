@@ -147,4 +147,41 @@ $boundarySummary = new AffiliateIntegrations(static function (string $method, st
 });
 checkAffiliate(count($boundarySummary->hotmartSalesSummary(10)['items']) === 10, 'aceita limite exato do sumário');
 
+// Credenciais OAuth da Hotmart são enviadas na URL: rejeitar controles e excesso
+// antes de invocar o transporte, sem ecoar segredos nas exceções.
+$invalidHotmartCredentials = [
+    ['HOTMART_CLIENT_ID', "client\r\nX-Injected: yes"],
+    ['HOTMART_CLIENT_SECRET', "secret\twith-tab"],
+    ['HOTMART_CLIENT_ID', str_repeat('i', 4097)],
+    ['HOTMART_CLIENT_SECRET', str_repeat('s', 4097)],
+];
+foreach ($invalidHotmartCredentials as [$key, $value]) {
+    putenv($key . '=' . $value);
+    $calls = 0;
+    try {
+        (new AffiliateIntegrations(static function () use (&$calls): array {
+            $calls++;
+            return ['status' => 200, 'body' => '{"access_token":"unexpected"}'];
+        }))->hotmartSalesSummary();
+        throw new RuntimeException('Aceitou credencial OAuth Hotmart insegura.');
+    } catch (RuntimeException $e) {
+        checkAffiliate($e->getMessage() === 'Credenciais OAuth Hotmart inválidas.', 'erro seguro para ' . $key);
+    }
+    checkAffiliate($calls === 0, 'credencial insegura não enviada: ' . $key);
+    putenv($key . '=' . ($key === 'HOTMART_CLIENT_ID' ? 'client-test' : 'secret-test'));
+}
+// Separadores visíveis legítimos devem continuar codificados em RFC3986.
+putenv('HOTMART_CLIENT_SECRET=abc+&=xyz');
+$oauthUrl = null;
+$validCredentialClient = new AffiliateIntegrations(static function (string $method, string $url) use (&$oauthUrl): array {
+    if (str_contains($url, '/oauth/token')) {
+        $oauthUrl = $url;
+        return ['status' => 200, 'body' => '{"access_token":"safe-token","expires_in":300}'];
+    }
+    return ['status' => 200, 'body' => '{"items":[]}'];
+});
+checkAffiliate($validCredentialClient->hotmartSalesSummary(1)['items'] === [], 'credencial codificada permite consulta');
+checkAffiliate(is_string($oauthUrl) && str_contains($oauthUrl, 'client_secret=abc%2B%26%3Dxyz'), 'segredo codificado com RFC3986');
+putenv('HOTMART_CLIENT_SECRET=secret-test');
+
 echo "Integração Hotmart: testes com transporte simulado aprovados.\n";
