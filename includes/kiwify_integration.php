@@ -67,7 +67,8 @@ final class KiwifyIntegration
             'Accept: application/json',
         ], $body);
         $token = $response['access_token'] ?? null;
-        if (!is_string($token) || $token === '' || strlen($token) > 8192 || preg_match('/[\r\n]/', $token)) {
+        if (!is_string($token) || $token === '' || strlen($token) > 8192
+            || !preg_match('/\A[\x21-\x7e]+\z/D', $token)) {
             throw new RuntimeException('Kiwify não retornou token válido.');
         }
         $this->token = $token;
