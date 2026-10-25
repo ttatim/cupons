@@ -22,6 +22,9 @@ on:
       - 'tests/test_hotmart_commission_staging.php'
       - 'includes/hotmart_commission_stage_pagination.php'
       - 'tests/test_hotmart_commission_stage_pagination.php'
+      - 'includes/monetizze_relay_nonce_store.php'
+      - 'sql/updates/20261024_monetizze_relay_nonces.sql'
+      - 'tests/test_monetizze_relay_nonce_store.php'
       - '.github/workflows/affiliate-staging.yml'
   push:
     branches: [main]
@@ -45,6 +48,9 @@ on:
       - 'tests/test_hotmart_commission_staging.php'
       - 'includes/hotmart_commission_stage_pagination.php'
       - 'tests/test_hotmart_commission_stage_pagination.php'
+      - 'includes/monetizze_relay_nonce_store.php'
+      - 'sql/updates/20261024_monetizze_relay_nonces.sql'
+      - 'tests/test_monetizze_relay_nonce_store.php'
       - '.github/workflows/affiliate-staging.yml'
 
 jobs:
@@ -92,6 +98,8 @@ jobs:
           php -l tests/test_hotmart_commission_staging.php
           php -l includes/hotmart_commission_stage_pagination.php
           php -l tests/test_hotmart_commission_stage_pagination.php
+          php -l includes/monetizze_relay_nonce_store.php
+          php -l tests/test_monetizze_relay_nonce_store.php
       - name: Validate manual pagination
         run: |
           php tests/test_affiliate_import_page.php
@@ -106,3 +114,4 @@ jobs:
           php tests/test_affiliate_product_review.php
           php tests/test_affiliate_product_publication.php
           php tests/test_hotmart_commission_staging.php
+          php tests/test_monetizze_relay_nonce_store.php
