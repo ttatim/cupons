@@ -82,7 +82,7 @@ foreach ($invalidTokens as $label => $badToken) {
 // Rejeitar credenciais OAuth malformadas antes de qualquer POST de autenticação.
 $invalidCredentials = [
     ['KIWIFY_CLIENT_ID', "client\r\nX-Injected: yes"],
-    ['KIWIFY_CLIENT_SECRET', "secret\x00hidden"],
+    ['KIWIFY_CLIENT_SECRET', "secret\twith-tab"],
     ['KIWIFY_CLIENT_SECRET', str_repeat('s', 4097)],
     ['KIWIFY_CLIENT_ID', str_repeat('i', 4097)],
 ];
