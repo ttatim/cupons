@@ -234,3 +234,11 @@
 - A área permanece exclusivamente administrativa até existir isolamento de contas, credenciais e produtos por vendedor (requisito 10). **Não** foi concedido acesso a vendedores, nem habilitada conciliação financeira ou postback Monetizze.
 - Verificações: `php tests/test_affiliate_admin_access.php` sem banco; testes HTTP sintéticos acrescentados a `tests/test_monetizze_admin_http_e2e.php` para anônimo, administrador ativo, editor, tentativa de publicação e revogação de acesso durante sessão. CI executa testes em PHP 8.3/8.4 e MySQL 8.
 - Sem migrações adicionais, dados reais, credenciais de fornecedor ou alteração no esquema. Homologação de origem Monetizze permanece pendente.
+
+## Proteção de credenciais HTTP Hotmart (25/10/2026)
+
+- O adaptador Hotmart rejeita caracteres de controle no HOTMART_BASIC_TOKEN antes de normalizar o prefixo Basic, evitando injeção de cabeçalhos via CR/LF. Limita a credencial Basic a 8192 bytes úteis e aceita somente ASCII visível.
+- Tokens Bearer retornados pelo OAuth também exigem ASCII visível sem espaços ou controles e no máximo 8192 bytes antes de qualquer consulta de vendas/comissões.
+- Mensagens de erro não incluem credenciais, tokens, corpo de resposta ou URL com parâmetros de autenticação.
+- Regressão: php tests/test_affiliate_integrations.php, com transporte simulado e cenários de CR/LF, credencial excessiva e token com espaços. Nenhuma credencial real, migração ou rota pública foi adicionada.
+- Homologação Monetizze upstream e credenciais reais de fornecedores continuam pendentes. Esta proteção não habilita conciliação financeira.
