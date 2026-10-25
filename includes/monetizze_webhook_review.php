@@ -39,9 +39,9 @@ final class MonetizzeWebhookReview
             if (!is_string($id) || !preg_match('/\A[a-fA-F0-9]{64}\z/D', $id)
                 || !is_string($accountKey) || !preg_match('/\A[a-fA-F0-9]{32}\z/D', $accountKey)
                 || (!is_string($status) && !is_int($status))
-                || !preg_match('/\A[0-9]{1,3}\z/D', (string) $status)
+                || !preg_match('/\A(?:0|[1-9][0-9]{0,2})\z/D', (string) $status)
                 || (!is_string($eventCode) && !is_int($eventCode))
-                || !preg_match('/\A[0-9]{1,3}\z/D', (string) $eventCode)) {
+                || !preg_match('/\A(?:0|[1-9][0-9]{0,2})\z/D', (string) $eventCode)) {
                 throw new InvalidArgumentException('Campos mínimos do evento Monetizze inválidos.');
             }
             if (!hash_equals(strtolower($expectedAccountKey), strtolower($accountKey))) {
@@ -49,11 +49,17 @@ final class MonetizzeWebhookReview
                 continue;
             }
             $id = strtolower($id);
+            // The same delivery ID with different codes is ambiguous: fail closed
+            // instead of silently dropping a potentially important risk event.
+            $codes = [(string) $status, (string) $eventCode];
             if (isset($seen[$id])) {
+                if ($seen[$id] !== $codes) {
+                    throw new InvalidArgumentException('Disparo Monetizze duplicado com códigos divergentes.');
+                }
                 $result['duplicates']++;
                 continue;
             }
-            $seen[$id] = true;
+            $seen[$id] = $codes;
             // Status da venda e tipo do webhook são conceitos diferentes.
             // 9 = solicitação de reembolso no exemplo oficial, ainda que status = 2.
             if ((string) $eventCode === '9' || in_array((string) $status, ['3', '4', '5'], true)) {
