@@ -76,8 +76,18 @@ try {
         'idempotência entre conexões e nonces distintos');
     $changed = json_encode([['id' => $eventId, 'chave_unica' => $account,
         'codigo_status' => '6', 'postback_evento' => '2']], JSON_THROW_ON_ERROR);
-    $repeatChanged = $run($db, $nonce3, $changed);
-    eventCheck($repeatChanged['observations_existing'] === 1, 'não sobrescrever evento existente');
+    eventReject(static fn() => $run($db, $nonce3, $changed),
+        'mesmo disparo com status divergente entre lotes');
+    $nonceCheck = $db->prepare('SELECT COUNT(*) FROM monetizze_relay_nonces WHERE nonce = ?');
+    $nonceCheck->execute([$nonce3]);
+    eventCheck((int) $nonceCheck->fetchColumn() === 0,
+        'divergência faz rollback do nonce e preserva evidência anterior');
+    $conflictingBatch = json_encode([
+        ['id' => $eventId, 'chave_unica' => $account, 'codigo_status' => '2', 'postback_evento' => '9'],
+        ['id' => $eventId, 'chave_unica' => $account, 'codigo_status' => '6', 'postback_evento' => '2'],
+    ], JSON_THROW_ON_ERROR);
+    eventReject(static fn() => $run($db, $nonce4, $conflictingBatch),
+        'mesmo disparo com códigos divergentes no lote');
     $bad = json_encode([['id' => 'INVALID', 'chave_unica' => $account,
         'codigo_status' => '2', 'postback_evento' => '2']], JSON_THROW_ON_ERROR);
     eventReject(static fn() => $run($db, $nonce4, $bad), 'lote inválido');
