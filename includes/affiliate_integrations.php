@@ -145,10 +145,20 @@ final class AffiliateIntegrations
         if ($this->token !== null && time() < $this->expiresAt) {
             return $this->token;
         }
+        $clientId = (string) getenv('HOTMART_CLIENT_ID');
+        $clientSecret = (string) getenv('HOTMART_CLIENT_SECRET');
+        // Credenciais via query string exigidas pela API: limitar e rejeitar controles
+        // antes de construir a URL (que nunca deve ser registrada em logs).
+        foreach ([$clientId, $clientSecret] as $credential) {
+            if (trim($credential) === '' || strlen($credential) > 4096
+                || preg_match('/[\x00-\x1f\x7f]/', $credential)) {
+                throw new RuntimeException('Credenciais OAuth Hotmart inválidas.');
+            }
+        }
         $query = http_build_query([
             'grant_type' => 'client_credentials',
-            'client_id' => (string) getenv('HOTMART_CLIENT_ID'),
-            'client_secret' => (string) getenv('HOTMART_CLIENT_SECRET'),
+            'client_id' => $clientId,
+            'client_secret' => $clientSecret,
         ], '', '&', PHP_QUERY_RFC3986);
         $basicRaw = (string) getenv('HOTMART_BASIC_TOKEN');
         // Não normalizar caracteres de controle: CR/LF permite injeção de cabeçalhos.
