@@ -29,6 +29,7 @@ final class MonetizzeNativePostbackPreview
             if (!is_array($data) || array_is_list($data)) {
                 throw new InvalidArgumentException('Objeto JSON do postback inválido.');
             }
+            self::validateJsonObjectKeys($raw);
         } elseif ($type === 'application/x-www-form-urlencoded') {
             $data = self::parseForm($raw);
         } else {
@@ -54,6 +55,105 @@ final class MonetizzeNativePostbackPreview
         $summary = MonetizzeWebhookReview::preview([$minimal], $expectedAccountKey);
         $summary['origin_verified'] = false;
         return $summary;
+    }
+
+
+    /**
+     * Detect duplicate top-level JSON keys before json_decode silently overwrites
+     * them. Decode escaped key names so "id" and "\u0069d" also conflict.
+     * Values are skipped with string/depth tracking; nested buyer data is ignored.
+     */
+    private static function validateJsonObjectKeys(string $raw): void
+    {
+        $length = strlen($raw);
+        $offset = 0;
+        self::skipJsonWhitespace($raw, $offset, $length);
+        if ($offset >= $length || $raw[$offset] !== '{') {
+            throw new InvalidArgumentException('Objeto JSON do postback inválido.');
+        }
+        $offset++;
+        $seen = [];
+        $fieldCount = 0;
+        while (true) {
+            self::skipJsonWhitespace($raw, $offset, $length);
+            if ($offset >= $length) {
+                throw new InvalidArgumentException('Objeto JSON do postback inválido.');
+            }
+            if ($raw[$offset] === '}') {
+                return;
+            }
+            if ($raw[$offset] !== '"') {
+                throw new InvalidArgumentException('Campo JSON inválido.');
+            }
+            $start = $offset++;
+            while ($offset < $length) {
+                if ($raw[$offset] === '\\') {
+                    $offset += 2;
+                    continue;
+                }
+                if ($raw[$offset++] === '"') {
+                    break;
+                }
+            }
+            if ($offset > $length || $raw[$offset - 1] !== '"') {
+                throw new InvalidArgumentException('Campo JSON inválido.');
+            }
+            $key = json_decode(substr($raw, $start, $offset - $start), true, 16, JSON_THROW_ON_ERROR);
+            $lookupKey = "\0" . $key;
+            if (isset($seen[$lookupKey])) {
+                throw new InvalidArgumentException('Campo JSON duplicado.');
+            }
+            $seen[$lookupKey] = true;
+            if (++$fieldCount > self::MAX_FIELDS) {
+                throw new InvalidArgumentException('Postback com campos excessivos.');
+            }
+            self::skipJsonWhitespace($raw, $offset, $length);
+            if ($offset >= $length || $raw[$offset] !== ':') {
+                throw new InvalidArgumentException('Campo JSON inválido.');
+            }
+            $offset++;
+            $depth = 0;
+            $inString = false;
+            $escaped = false;
+            for (; $offset < $length; $offset++) {
+                $char = $raw[$offset];
+                if ($inString) {
+                    if ($escaped) {
+                        $escaped = false;
+                    } elseif ($char === '\\') {
+                        $escaped = true;
+                    } elseif ($char === '"') {
+                        $inString = false;
+                    }
+                    continue;
+                }
+                if ($char === '"') {
+                    $inString = true;
+                } elseif ($char === '{' || $char === '[') {
+                    $depth++;
+                } elseif ($char === '}' || $char === ']') {
+                    if ($depth > 0) {
+                        $depth--;
+                    } elseif ($char === '}') {
+                        return;
+                    }
+                } elseif ($char === ',' && $depth === 0) {
+                    $offset++;
+                    break;
+                }
+            }
+            if ($offset >= $length) {
+                throw new InvalidArgumentException('Objeto JSON do postback inválido.');
+            }
+        }
+    }
+
+    private static function skipJsonWhitespace(string $raw, int &$offset, int $length): void
+    {
+        while ($offset < $length && ($raw[$offset] === ' ' || $raw[$offset] === "\n"
+            || $raw[$offset] === "\r" || $raw[$offset] === "\t")) {
+            $offset++;
+        }
     }
 
     /** @return array<string,string> Only the four fields needed for a safe preview. */
