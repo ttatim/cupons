@@ -262,3 +262,10 @@
 - A consulta somente leitura `hotmartSalesSummary()` agora rejeita `items` que não seja uma lista JSON e respostas com mais elementos do que `max_results` solicitado. O limite também é validado na resposta, impedindo que uma API inconsistente encaminhe resultados excessivos ao painel.
 - Testes sintéticos verificam rejeição de 11 itens quando solicitados 10, rejeição de objeto associativo em `items` e aceitação de exatamente 10 itens. Executar `php tests/test_affiliate_integrations.php`; CI PHP 8.3/8.4 executa o mesmo teste.
 - Nenhuma migração SQL, credencial real, alteração financeira ou dependência adicional. A homologação de origem Monetizze continua bloqueada e o item 3 permanece parcial.
+
+## Proteção das credenciais de entrada OAuth Kiwify (25/10/2026)
+
+- O cliente Kiwify verifica `KIWIFY_CLIENT_ID` e `KIWIFY_CLIENT_SECRET` **antes** do POST de autenticação: rejeita credenciais vazias, com bytes de controle (CR/LF, tabulação, DEL) ou com mais de 4096 bytes cada. As mensagens de erro não expõem os valores.
+- Valores visíveis com caracteres especiais continuam aceitos e são codificados em `application/x-www-form-urlencoded` (RFC 3986), sem concatenar credenciais em cabeçalhos HTTP ou URL.
+- Regressão com transporte simulado em `php tests/test_kiwify_integration.php`: confirma que entradas malformadas não geram requisições e que credenciais válidas são codificadas corretamente.
+- Não houve migração SQL, inclusão de segredos, endpoint público ou habilitação financeira. A homologação real da API Kiwify e da origem Monetizze permanece pendente; o requisito 3 continua parcial.
