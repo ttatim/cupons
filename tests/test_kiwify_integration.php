@@ -86,4 +86,27 @@ try {
 } catch (RuntimeException $e) {
     checkKiwify(str_contains($e->getMessage(), 'inválido'), 'bloqueia injeção de header');
 }
+// Respostas acima do page_size contratado não podem chegar ao staging.
+// Restaurar conta sintética válida após o teste de injeção de cabeçalho.
+putenv('KIWIFY_ACCOUNT_ID=test-account');
+$oversizedCalls = 0;
+$oversizedTransport = static function (string $method, string $url, array $headers, ?string $body) use (&$oversizedCalls): array {
+    $oversizedCalls++;
+    if ($oversizedCalls === 1) {
+        return ['status' => 200, 'body' => '{"access_token":"test-token","expires_in":300}'];
+    }
+    $products = array_fill(0, 11, ['id' => 'synthetic', 'name' => 'Produto sintético']);
+    return ['status' => 200, 'body' => json_encode([
+        'data' => $products,
+        'pagination' => ['page_number' => 1, 'page_size' => 10],
+    ], JSON_THROW_ON_ERROR)];
+};
+try {
+    (new KiwifyIntegration(Closure::fromCallable($oversizedTransport)))->listProducts(1, 10);
+    throw new RuntimeException('Aceitou página Kiwify com produtos excedentes');
+} catch (RuntimeException $e) {
+    checkKiwify($e->getMessage() === 'Kiwify retornou mais produtos que o limite solicitado.', 'rejeita página acima do limite');
+}
+checkKiwify($oversizedCalls === 2, 'limite rejeitado após uma consulta de produtos');
+
 echo "Kiwify: testes simulados aprovados.\n";

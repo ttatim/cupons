@@ -249,3 +249,10 @@
 - Uma resposta OAuth malformada falha de forma segura, sem transmitir token inválido à rota de produtos e sem incluir credenciais ou conteúdo da resposta na mensagem de erro.
 - Regressão sintética: `php tests/test_kiwify_integration.php`, cobrindo Bearer com espaços, tabulação, CR/LF, DEL, vazio e excessivamente longo; o transporte simulado verifica que nenhuma segunda requisição ocorre.
 - Sem credenciais reais, alterações financeiras, endpoint público ou migração. Homologação com provedor e autenticação upstream Monetizze continuam pendentes; não habilita conciliação financeira.
+
+## Complemento: limite efetivo de página Kiwify (25/10/2026)
+
+- O cliente de leitura `KiwifyIntegration::listProducts` passa a **rejeitar** respostas com mais itens em `data` do que o `pageSize` solicitado. O limite vale para dados efetivamente aceitos, não apenas para o parâmetro enviado à API.
+- Uma resposta excessiva gera erro genérico, sem devolver o payload ao painel nem permitir sua importação para o staging. A ação permanece manual, somente leitura na consulta e sem sincronização automática.
+- Regressão sintética: `php tests/test_kiwify_integration.php`, incluindo resposta com 11 itens para limite de 10. O teste roda no CI PHP 8.3/8.4; nenhuma credencial real é necessária.
+- Nenhuma migração SQL, dependência ou configuração adicional. A autenticação real e a titularidade da conta continuam sem homologação; a Monetizze permanece bloqueada para conciliação financeira.
