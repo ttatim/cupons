@@ -151,7 +151,7 @@ final class AffiliateIntegrations
         // antes de construir a URL (que nunca deve ser registrada em logs).
         foreach ([$clientId, $clientSecret] as $credential) {
             if (trim($credential) === '' || strlen($credential) > 4096
-                || preg_match('/[\\x00-\\x1f\\x7f]/', $credential)) {
+                || preg_match('/[\x00-\x1f\x7f]/', $credential)) {
                 throw new RuntimeException('Credenciais OAuth Hotmart inválidas.');
             }
         }
