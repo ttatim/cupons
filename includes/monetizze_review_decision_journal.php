@@ -94,7 +94,8 @@ final class MonetizzeReviewDecisionJournal
         }
         self::requireAuthorization($authorize, $accountKey, $operatorRef);
         $accountHash = self::hash($accountKey, $hashKey, 'account');
-        $candidate = $pdo->prepare('SELECT id FROM monetizze_review_candidates
+        try {
+            $candidate = $pdo->prepare('SELECT id FROM monetizze_review_candidates
             WHERE id = :id AND account_hash = :account_hash');
         $candidate->execute([':id' => $reviewId, ':account_hash' => $accountHash]);
         if ($candidate->fetchColumn() === false) {
@@ -123,7 +124,10 @@ final class MonetizzeReviewDecisionJournal
         return [
             'items' => $items, 'next_after_id' => $cursor, 'has_more' => $hasMore,
             'authenticated' => false, 'financial_ready' => false, 'read_only' => true,
-        ];
+            ];
+        } catch (PDOException $exception) {
+            throw new RuntimeException('Consulta de revisão Monetizze indisponível.', 0, $exception);
+        }
     }
 
     private static function validate(PDO $pdo, string $accountKey, string $hashKey, string $operatorRef): void
