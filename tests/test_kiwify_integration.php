@@ -79,6 +79,43 @@ foreach ($invalidTokens as $label => $badToken) {
         checkKiwify($calls === 1, 'não consulta produtos com Bearer ' . $label);
     }
 }
+// Rejeitar credenciais OAuth malformadas antes de qualquer POST de autenticação.
+$invalidCredentials = [
+    ['KIWIFY_CLIENT_ID', "client\r\nX-Injected: yes"],
+    ['KIWIFY_CLIENT_SECRET', "secret\twith-tab"],
+    ['KIWIFY_CLIENT_SECRET', str_repeat('s', 4097)],
+    ['KIWIFY_CLIENT_ID', str_repeat('i', 4097)],
+];
+foreach ($invalidCredentials as [$key, $invalidValue]) {
+    putenv($key . '=' . $invalidValue);
+    $oauthCalls = 0;
+    $blockedTransport = static function () use (&$oauthCalls): array {
+        $oauthCalls++;
+        return ['status' => 200, 'body' => '{"access_token":"should-not-be-used"}'];
+    };
+    try {
+        (new KiwifyIntegration(Closure::fromCallable($blockedTransport)))->listProducts();
+        throw new RuntimeException('Aceitou credencial OAuth inválida: ' . $key);
+    } catch (RuntimeException $e) {
+        checkKiwify($e->getMessage() === 'Credenciais OAuth Kiwify inválidas.', 'rejeita credencial OAuth insegura');
+    }
+    checkKiwify($oauthCalls === 0, 'não envia credencial inválida à Kiwify');
+    putenv($key . '=' . ($key === 'KIWIFY_CLIENT_ID' ? 'test-client' : 'test-secret'));
+}
+// Caracteres visíveis e separadores de formulário são permitidos e codificados.
+putenv('KIWIFY_CLIENT_SECRET=abc-x0+&=');
+$validBodies = [];
+$validTransport = static function (string $method, string $url, array $headers, ?string $body) use (&$validBodies): array {
+    $validBodies[] = $body;
+    return count($validBodies) === 1
+        ? ['status' => 200, 'body' => '{"access_token":"valid-token","expires_in":300}']
+        : ['status' => 200, 'body' => '{"data":[],"pagination":{}}'];
+};
+(new KiwifyIntegration(Closure::fromCallable($validTransport)))->listProducts();
+checkKiwify(count($validBodies) === 2, 'credencial visível válida mantém autenticação');
+checkKiwify($validBodies[0] === 'client_id=test-client&client_secret=abc-x0%2B%26%3D', 'segredo OAuth codificado em form-urlencoded');
+putenv('KIWIFY_CLIENT_SECRET=test-secret');
+
 putenv("KIWIFY_ACCOUNT_ID=bad\r\nX-Test: evil");
 try {
     (new KiwifyIntegration(static fn () => ['status' => 200, 'body' => '{}']))->listProducts();

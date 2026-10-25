@@ -63,9 +63,19 @@ final class KiwifyIntegration
         if ($this->token !== null && time() < $this->expiresAt) {
             return $this->token;
         }
+        $clientId = (string) getenv('KIWIFY_CLIENT_ID');
+        $clientSecret = (string) getenv('KIWIFY_CLIENT_SECRET');
+        // Credenciais ficam no corpo form-urlencoded, mas valores descontrolados
+        // não devem ser encaminhados à API (ou consumirem memória excessiva).
+        foreach ([$clientId, $clientSecret] as $credential) {
+            if (trim($credential) === '' || strlen($credential) > 4096
+                || preg_match('/[\x00-\x1f\x7f]/', $credential)) {
+                throw new RuntimeException('Credenciais OAuth Kiwify inválidas.');
+            }
+        }
         $body = http_build_query([
-            'client_id' => (string) getenv('KIWIFY_CLIENT_ID'),
-            'client_secret' => (string) getenv('KIWIFY_CLIENT_SECRET'),
+            'client_id' => $clientId,
+            'client_secret' => $clientSecret,
         ], '', '&', PHP_QUERY_RFC3986);
         $response = $this->request('POST', self::BASE_URL . '/oauth/token', [
             'Content-Type: application/x-www-form-urlencoded',
