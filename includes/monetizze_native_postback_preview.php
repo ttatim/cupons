@@ -19,7 +19,16 @@ final class MonetizzeNativePostbackPreview
         if ($raw === '' || strlen($raw) > self::MAX_BYTES) {
             throw new InvalidArgumentException('Tamanho do postback inválido.');
         }
-        $type = strtolower(trim(explode(';', $contentType, 2)[0]));
+        // Reject ambiguous MIME parameters, non-UTF-8 charsets and header injection.
+        // This parser handles UTF-8 JSON/form bytes only, never charset transcoding.
+        if (strlen($contentType) > 128 || !preg_match(
+            '~\\A(application/json|application/x-www-form-urlencoded)(?:[ \\t]*;[ \\t]*charset[ \\t]*=[ \\t]*(?:utf-8|"utf-8"))?[ \\t]*\\z~iD',
+            $contentType,
+            $matches
+        )) {
+            throw new InvalidArgumentException('Formato do postback não suportado.');
+        }
+        $type = strtolower($matches[1]);
         if ($type === 'application/json') {
             try {
                 $data = json_decode($raw, true, 16, JSON_THROW_ON_ERROR);
