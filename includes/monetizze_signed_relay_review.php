@@ -57,6 +57,9 @@ final class MonetizzeSignedRelayReview
         if (!is_array($events)) {
             throw new InvalidArgumentException('Lote do relay inválido.');
         }
+        // json_decode silently overwrites duplicate object keys. Reject ambiguous
+        // signed bytes, including Unicode-escaped aliases, BEFORE nonce claim.
+        self::rejectDuplicateJsonKeys($rawBody);
         // Validate before consuming the replay nonce; output never includes PII.
         $summary = MonetizzeWebhookReview::preview($events, $expectedAccountKey);
         try {
@@ -73,4 +76,112 @@ final class MonetizzeSignedRelayReview
         // Monetizze itself sent the message, nor permission to settle funds.
         return $summary;
     }
+
+    /** Scan all JSON objects, including nested buyer metadata, without retaining values. */
+    private static function rejectDuplicateJsonKeys(string $json): void
+    {
+        $offset = 0;
+        $length = strlen($json);
+        self::scanValue($json, $offset, $length);
+        self::skipWhitespace($json, $offset, $length);
+        if ($offset !== $length) {
+            throw new InvalidArgumentException('Estrutura JSON do relay inválida.');
+        }
+    }
+
+    private static function scanValue(string $json, int &$offset, int $length): void
+    {
+        self::skipWhitespace($json, $offset, $length);
+        if ($offset >= $length) {
+            throw new InvalidArgumentException('Estrutura JSON do relay inválida.');
+        }
+        $char = $json[$offset];
+        if ($char === '{') {
+            $offset++;
+            $seen = [];
+            self::skipWhitespace($json, $offset, $length);
+            if ($offset < $length && $json[$offset] === '}') {
+                $offset++;
+                return;
+            }
+            do {
+                self::skipWhitespace($json, $offset, $length);
+                $start = $offset;
+                self::scanString($json, $offset, $length);
+                $key = json_decode(substr($json, $start, $offset - $start), true, 16, JSON_THROW_ON_ERROR);
+                $index = "\0" . $key; // Avoid PHP's numeric-string key coercion.
+                if (isset($seen[$index])) {
+                    throw new InvalidArgumentException('Chave JSON duplicada no relay.');
+                }
+                $seen[$index] = true;
+                self::skipWhitespace($json, $offset, $length);
+                self::consume($json, $offset, $length, ':');
+                self::scanValue($json, $offset, $length);
+                self::skipWhitespace($json, $offset, $length);
+                if ($offset < $length && $json[$offset] === '}') {
+                    $offset++;
+                    return;
+                }
+                self::consume($json, $offset, $length, ',');
+            } while (true);
+        }
+        if ($char === '[') {
+            $offset++;
+            self::skipWhitespace($json, $offset, $length);
+            if ($offset < $length && $json[$offset] === ']') {
+                $offset++;
+                return;
+            }
+            do {
+                self::scanValue($json, $offset, $length);
+                self::skipWhitespace($json, $offset, $length);
+                if ($offset < $length && $json[$offset] === ']') {
+                    $offset++;
+                    return;
+                }
+                self::consume($json, $offset, $length, ',');
+            } while (true);
+        }
+        if ($char === '"') {
+            self::scanString($json, $offset, $length);
+            return;
+        }
+        // json_decode already checked scalar syntax and nesting depth.
+        $start = $offset;
+        while ($offset < $length && !str_contains(",]} \t\r\n", $json[$offset])) {
+            $offset++;
+        }
+        if ($start === $offset) {
+            throw new InvalidArgumentException('Estrutura JSON do relay inválida.');
+        }
+    }
+
+    private static function scanString(string $json, int &$offset, int $length): void
+    {
+        self::consume($json, $offset, $length, '"');
+        while ($offset < $length) {
+            if ($json[$offset] === '\\') {
+                $offset += 2;
+            } elseif ($json[$offset++] === '"') {
+                return;
+            }
+        }
+        throw new InvalidArgumentException('Estrutura JSON do relay inválida.');
+    }
+
+    private static function skipWhitespace(string $json, int &$offset, int $length): void
+    {
+        while ($offset < $length && str_contains(" \t\r\n", $json[$offset])) {
+            $offset++;
+        }
+    }
+
+    private static function consume(string $json, int &$offset, int $length, string $expected): void
+    {
+        if ($offset >= $length || $json[$offset] !== $expected) {
+            throw new InvalidArgumentException('Estrutura JSON do relay inválida.');
+        }
+        $offset++;
+    }
+
 }
