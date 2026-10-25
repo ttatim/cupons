@@ -51,6 +51,7 @@ on:
       - 'tests/test_monetizze_relay_http_guard.php'
       - 'tests/test_monetizze_relay_http_mysql_chain.php'
       - 'tests/test_monetizze_relay_http_e2e.php'
+      - 'tests/test_monetizze_admin_http_e2e.php'
       - 'tests/fixtures/monetizze_http_router.php'
       - '.github/workflows/affiliate-staging.yml'
   push:
@@ -104,6 +105,7 @@ on:
       - 'tests/test_monetizze_relay_http_guard.php'
       - 'tests/test_monetizze_relay_http_mysql_chain.php'
       - 'tests/test_monetizze_relay_http_e2e.php'
+      - 'tests/test_monetizze_admin_http_e2e.php'
       - 'tests/fixtures/monetizze_http_router.php'
       - '.github/workflows/affiliate-staging.yml'
 
@@ -174,6 +176,7 @@ jobs:
           php -l tests/test_monetizze_relay_http_guard.php
           php -l tests/test_monetizze_relay_http_mysql_chain.php
           php -l tests/test_monetizze_relay_http_e2e.php
+          php -l tests/test_monetizze_admin_http_e2e.php
           php -l tests/fixtures/monetizze_http_router.php
           php -l tests/test_monetizze_relay_json_ambiguity.php
       - name: Validate manual pagination
@@ -198,6 +201,7 @@ jobs:
           php tests/test_monetizze_relay_nonce_store.php
           php tests/test_monetizze_relay_http_mysql_chain.php
           php tests/test_monetizze_relay_http_e2e.php
+          php tests/test_monetizze_admin_http_e2e.php
           php tests/test_monetizze_relay_event_staging.php
           php tests/test_monetizze_status_transition_preview.php
           php tests/test_monetizze_review_candidate_journal.php
