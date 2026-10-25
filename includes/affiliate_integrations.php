@@ -145,10 +145,19 @@ final class AffiliateIntegrations
             'client_id' => (string) getenv('HOTMART_CLIENT_ID'),
             'client_secret' => (string) getenv('HOTMART_CLIENT_SECRET'),
         ], '', '&', PHP_QUERY_RFC3986);
-        $basic = trim((string) getenv('HOTMART_BASIC_TOKEN'));
+        $basicRaw = (string) getenv('HOTMART_BASIC_TOKEN');
+        // Não normalizar caracteres de controle: CR/LF permite injeção de cabeçalhos.
+        if (strlen($basicRaw) > 8198 || preg_match('/[\x00-\x1f\x7f]/', $basicRaw)) {
+            throw new RuntimeException('HOTMART_BASIC_TOKEN inválido.');
+        }
+        $basic = trim($basicRaw);
         // Hotmart fornece o token Basic; pode vir com ou sem o prefixo.
-        if (str_starts_with(strtolower($basic), 'basic ')) {
+        if (strncasecmp($basic, 'Basic ', 6) === 0) {
             $basic = substr($basic, 6);
+        }
+        if ($basic === '' || strlen($basic) > 8192
+            || !preg_match('/\A[\x21-\x7e]+\z/D', $basic)) {
+            throw new RuntimeException('HOTMART_BASIC_TOKEN inválido.');
         }
         $data = $this->request('POST', self::AUTH_URL . '?' . $query, [
             'Authorization: Basic ' . $basic,
@@ -156,7 +165,8 @@ final class AffiliateIntegrations
             'Content-Type: application/json',
         ]);
         $token = $data['access_token'] ?? null;
-        if (!is_string($token) || $token === '' || strlen($token) > 8192) {
+        if (!is_string($token) || $token === '' || strlen($token) > 8192
+            || !preg_match('/\A[\x21-\x7e]+\z/D', $token)) {
             throw new RuntimeException('Hotmart não retornou um token de acesso válido.');
         }
         $this->token = $token;
