@@ -56,7 +56,7 @@ httpGuardReject(static fn() => $run(array_replace($server, ['CONTENT_LENGTH' => 
 httpGuardReject(static fn() => $run(array_replace($server, ['CONTENT_LENGTH' => '1']), $body), 'content-length divergente');
 httpGuardReject(static fn() => $run(array_replace($server, ['HTTP_CONTENT_ENCODING' => 'gzip']), $body), 'compressão');
 httpGuardReject(static fn() => $run(array_replace($server, ['HTTP_TRANSFER_ENCODING' => 'chunked']), $body), 'transfer encoding ambíguo');
-httpGuardReject(static fn() => $run(array_replace($server, ['HTTP_X_MONETIZZE_RELAY_SIGNATURE' => '0' . substr($signature, 1)]), $body), 'assinatura adulterada');
+httpGuardReject(static fn() => $run(array_replace($server, ['HTTP_X_MONETIZZE_RELAY_SIGNATURE' => ($signature[0] === '0' ? '1' : '0') . substr($signature, 1)]), $body), 'assinatura adulterada');
 httpGuardReject(static fn() => $run(array_replace($server, ['HTTP_X_MONETIZZE_RELAY_NONCE' => [$nonce]]), $body), 'header não escalar');
 httpGuardReject(static fn() => $run($server, str_repeat('x', 65537)), 'payload excessivo');
 httpGuardAssert(count($claimed) === 0, 'nenhuma entrada inválida reserva nonce');
