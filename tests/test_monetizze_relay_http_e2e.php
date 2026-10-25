@@ -105,7 +105,7 @@ $start = static function (bool $enabled, bool $upstream) use (
     e2eCheck($ready, 'servidor HTTP pronto');
 };
 $request = static function (string $method, string $payload, string $nonce, ?string $signature = null,
-    string $contentType = 'application/json') use (&$port, $timestamp, $sign): array {
+    string $contentType = 'application/json') use (&$port, $timestamp, $sign, $secret): array {
     $handle = curl_init('http://127.0.0.1:' . $port . '/relay-test');
     e2eCheck($handle !== false, 'cliente HTTP inicializado');
     $headers = [
