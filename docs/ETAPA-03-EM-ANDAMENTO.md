@@ -269,3 +269,11 @@
 - Valores visíveis com caracteres especiais continuam aceitos e são codificados em `application/x-www-form-urlencoded` (RFC 3986), sem concatenar credenciais em cabeçalhos HTTP ou URL.
 - Regressão com transporte simulado em `php tests/test_kiwify_integration.php`: confirma que entradas malformadas não geram requisições e que credenciais válidas são codificadas corretamente.
 - Não houve migração SQL, inclusão de segredos, endpoint público ou habilitação financeira. A homologação real da API Kiwify e da origem Monetizze permanece pendente; o requisito 3 continua parcial.
+
+## Validação de credenciais OAuth Hotmart (25/10/2026)
+
+- `HOTMART_CLIENT_ID` e `HOTMART_CLIENT_SECRET` são validados antes de construir a URL de autenticação: não vazios, até 4096 bytes cada, sem CRLF, tabulação ou outros caracteres de controle.
+- Valores visíveis especiais continuam codificados em RFC3986; falhas não revelam credenciais nem disparam chamadas HTTP.
+- Regressões com transporte sintético: `php tests/test_affiliate_integrations.php`; matriz PHP 8.3/8.4 em CI.
+- A API Hotmart exige parâmetros OAuth na URL neste adaptador: não registrar URL completa em logs, traces, proxies ou APM; revisar a política de retenção desses sistemas.
+- Nenhuma credencial real foi utilizada, não houve alteração de esquema e a integração permanece sem homologação real.
