@@ -69,7 +69,7 @@ final class KiwifyIntegration
         // não devem ser encaminhados à API (ou consumirem memória excessiva).
         foreach ([$clientId, $clientSecret] as $credential) {
             if (trim($credential) === '' || strlen($credential) > 4096
-                || preg_match('/[\\x00-\\x1f\\x7f]/', $credential)) {
+                || preg_match('/[\x00-\x1f\x7f]/', $credential)) {
                 throw new RuntimeException('Credenciais OAuth Kiwify inválidas.');
             }
         }
