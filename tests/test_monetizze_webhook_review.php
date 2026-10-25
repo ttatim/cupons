@@ -49,8 +49,8 @@ $invalid = [
     [[array_merge($events[0], ['codigo_status' => "2\r\n"])], $key],
     [[array_merge($events[0], ['postback_evento' => ['2']])], $key],
     [[[...$events[0], 'id' => str_repeat('1', 64), 'codigo_status' => null]], $key],
-    [[...$events[0], array_merge($events[0], ['codigo_status' => '4'])], $key],
-    [[...$events[0], array_merge($events[0], ['postback_evento' => '9'])], $key],
+    [[$events[0], array_merge($events[0], ['codigo_status' => '4'])], $key],
+    [[$events[0], array_merge($events[0], ['postback_evento' => '9'])], $key],
     [[array_merge($events[0], ['codigo_status' => '02'])], $key],
     [[array_merge($events[0], ['postback_evento' => '09'])], $key],
 ];
