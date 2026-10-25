@@ -37,7 +37,7 @@ foreach ([
     'application/json; foo=bar',
     'application/x-www-form-urlencoded; charset=latin1',
     'application/x-www-form-urlencoded; boundary=x',
-    "application/json\\r\\nX-Injected: yes",
+    "application/json\r\nX-Injected: yes",
     str_repeat('a', 129),
 ] as $invalidType) {
     nativeReject(static fn() => $run($json, $invalidType), 'content-type ambíguo ou inseguro');
