@@ -45,6 +45,8 @@ on:
       - 'includes/monetizze_native_postback_preview.php'
       - 'tests/test_monetizze_native_postback_preview.php'
       - 'tests/test_monetizze_native_postback_ambiguity.php'
+      - 'includes/monetizze_signed_relay_review.php'
+      - 'tests/test_monetizze_relay_json_ambiguity.php'
       - 'includes/monetizze_relay_http_guard.php'
       - 'tests/test_monetizze_relay_http_guard.php'
       - '.github/workflows/affiliate-staging.yml'
@@ -93,6 +95,8 @@ on:
       - 'includes/monetizze_native_postback_preview.php'
       - 'tests/test_monetizze_native_postback_preview.php'
       - 'tests/test_monetizze_native_postback_ambiguity.php'
+      - 'includes/monetizze_signed_relay_review.php'
+      - 'tests/test_monetizze_relay_json_ambiguity.php'
       - 'includes/monetizze_relay_http_guard.php'
       - 'tests/test_monetizze_relay_http_guard.php'
       - '.github/workflows/affiliate-staging.yml'
@@ -162,6 +166,7 @@ jobs:
           php -l tests/test_monetizze_native_postback_ambiguity.php
           php -l includes/monetizze_relay_http_guard.php
           php -l tests/test_monetizze_relay_http_guard.php
+          php -l tests/test_monetizze_relay_json_ambiguity.php
       - name: Validate manual pagination
         run: |
           php tests/test_affiliate_import_page.php
@@ -170,6 +175,7 @@ jobs:
           php tests/test_monetizze_native_postback_preview.php
           php tests/test_monetizze_native_postback_ambiguity.php
           php tests/test_monetizze_relay_http_guard.php
+          php tests/test_monetizze_relay_json_ambiguity.php
       - name: MySQL staging integration tests
         env:
           TEST_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=cupons_test;charset=utf8mb4'
