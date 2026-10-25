@@ -65,3 +65,13 @@ O CI de compatibilidade executa o teste em PHP 8.3 e 8.4. Não exige MySQL, cURL
 - **Migração:** executar `sql/updates/20261024_monetizze_event_observations.sql` uma vez, **depois** de `sql/database.sql` e `sql/updates/20261024_monetizze_relay_nonces.sql`. Cria apenas tabela vazia. Faça backup antes de qualquer migração em ambiente existente.
 - **Testes sintéticos:** `php -l includes/monetizze_relay_event_staging.php` e `php tests/test_monetizze_relay_event_staging.php`. Com `TEST_DB_DSN` contendo `dbname=cupons_test`, `TEST_DB_USER` e `TEST_DB_PASSWORD`, testa MySQL real; sem DSN informa que a integração foi ignorada. CI usa PHP 8.3/8.4 e MySQL 8.
 - **Bloqueios:** autenticação upstream real, validação de códigos/formatos, política de retenção, isolamento por vendedor (requisito 10) e homologação com credenciais autorizadas. Não implantar para receber tráfego real antes dessas etapas.
+
+
+## Incremento: bloqueio de observações divergentes (24/10/2026)
+
+- A prévia `MonetizzeWebhookReview::preview` rejeita IDs de disparo repetidos **no mesmo lote** quando `codigo_status` ou `postback_evento` diferem. Duplicatas idênticas continuam sendo contadas, sem processamento duplicado.
+- Os códigos numéricos devem ter formato decimal canônico, sem zeros à esquerda (`2`, `9`, `0`; não `02` nem `09`). Isso evita classificação inconsistente entre a prévia e a persistência. A aceitação de formatos alternativos depende de homologação com a Monetizze.
+- A persistência `MonetizzeRelayEventStaging` verifica o registro existente em caso de chave duplicada: códigos idênticos são idempotentes; códigos divergentes geram erro controlado e **rollback de todo o lote e da reserva de nonce**. O registro original é preservado; nenhuma observação é sobrescrita.
+- Esse bloqueio **não é um histórico completo de alterações de status**. É necessário desenhar a trilha de mudanças legítimas e a revisão humana antes de habilitar conciliação financeira. A falha não contém ID de evento, comprador, conta, valor ou payload.
+- Testes: `php tests/test_monetizze_webhook_review.php` e `php tests/test_monetizze_relay_event_staging.php` (este último exige `cupons_test` MySQL). O CI existente executa os dois testes; sem `TEST_DB_DSN`, a integração MySQL é explicitamente ignorada.
+- **Instalação:** nenhuma migração ou dependência nova. Não existe receptor HTTP, autenticação nativa Monetizze, homologação de eventos reais ou autorização financeira. Não utilizar como webhook de produção.
