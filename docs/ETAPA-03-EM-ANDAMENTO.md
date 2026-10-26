@@ -277,3 +277,10 @@
 - Regressões com transporte sintético: `php tests/test_affiliate_integrations.php`; matriz PHP 8.3/8.4 em CI.
 - A API Hotmart exige parâmetros OAuth na URL neste adaptador: não registrar URL completa em logs, traces, proxies ou APM; revisar a política de retenção desses sistemas.
 - Nenhuma credencial real foi utilizada, não houve alteração de esquema e a integração permanece sem homologação real.
+
+## Complemento: validação estrita de TOKEN e chave Monetizze (25/10/2026)
+
+- A chave `MONETIZZE_CONSUMER_KEY` é validada sem `trim()` antes da montagem do cabeçalho; espaços e controles nas extremidades agora são rejeitados, evitando tratar uma configuração malformada como válida.
+- O `TOKEN` devolvido por `GET /2.1/token` deve conter apenas caracteres ASCII visíveis, sem espaços, NUL, DEL, tabulações ou quebras de linha, com limite de 8.192 bytes. Ele permanece **descartado**, sem gravação em sessão, banco ou logs.
+- Testes com transporte simulado em `tests/test_monetizze_integration.php` cobrem chaves inválidas sem envio HTTP e tokens inválidos; não foram utilizadas credenciais reais.
+- Esta alteração **não homologa a autenticação upstream**, não habilita conciliação financeira nem modifica schema/migrações. O requisito 3 continua parcial.

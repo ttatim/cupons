@@ -30,10 +30,11 @@ final class MonetizzeIntegration
      */
     public function checkConnection(): bool
     {
-        $key = trim((string) getenv('MONETIZZE_CONSUMER_KEY'));
-        if ($key === '') {
+        $key = (string) getenv('MONETIZZE_CONSUMER_KEY');
+        if (trim($key) === '') {
             throw new RuntimeException('Configure MONETIZZE_CONSUMER_KEY no servidor.');
         }
+        // Não aparar a chave: espaços/controles no início ou fim também devem ser recusados.
         // Evita injeção de cabeçalhos e limita a extensão da credencial.
         if (strlen($key) > 512 || strlen($key) < 10 || !preg_match('/\A[\x21-\x7e]+\z/D', $key)) {
             throw new RuntimeException('MONETIZZE_CONSUMER_KEY inválida.');
@@ -58,9 +59,10 @@ final class MonetizzeIntegration
         }
         $token = $data['TOKEN'] ?? $data['token'] ?? null;
         if (!is_string($token) || $token === '' || strlen($token) > 8192
-            || preg_match('/[\r\n]/', $token)) {
+            || !preg_match('/\A[\x21-\x7e]+\z/D', $token)) {
             throw new RuntimeException('Monetizze não retornou um TOKEN válido.');
         }
+        // Aceitar somente ASCII visível: NUL, tab, espaços e controles invalidam a resposta.
         // O token é intencionalmente descartado. Não gravar em logs, sessão ou banco.
         return true;
     }

@@ -53,4 +53,57 @@ try {
 } catch (RuntimeException $e) {
     assertMonetizze(str_contains($e->getMessage(), 'inválida'), 'bloqueia CRLF');
 }
+
+// Respostas OAuth com caracteres de controle ou espaços não comprovam autenticação.
+// O TOKEN é descartado e nunca deve aparecer em erros ou logs.
+putenv('MONETIZZE_CONSUMER_KEY=test-consumer-key-12345');
+foreach ([
+    'espaco' => 'token with space',
+    'tab' => "token\tvalue",
+    'nul' => "token\0value",
+    'del' => "token\x7fvalue",
+    'escape' => "token\x1bvalue",
+    'longo' => str_repeat('a', 8193),
+] as $label => $invalidToken) {
+    $calls = 0;
+    $response = json_encode(['TOKEN' => $invalidToken], JSON_THROW_ON_ERROR);
+    $client = new MonetizzeIntegration(static function () use (&$calls, $response): array {
+        $calls++;
+        return ['status' => 200, 'body' => $response];
+    });
+    try {
+        $client->checkConnection();
+        throw new RuntimeException('Aceitou TOKEN inseguro: ' . $label);
+    } catch (RuntimeException $e) {
+        assertMonetizze($e->getMessage() === 'Monetizze não retornou um TOKEN válido.', 'rejeita TOKEN ' . $label);
+        assertMonetizze($calls === 1, 'TOKEN rejeitado após uma consulta: ' . $label);
+    }
+}
+
+// Não mascarar chaves inválidas com trim() antes da validação do cabeçalho.
+foreach ([
+    'espaco-final' => 'test-consumer-key-12345 ',
+    'espaco-inicial' => ' test-consumer-key-12345',
+    'tab-final' => "test-consumer-key-12345\t",
+    'crlf-final' => "test-consumer-key-12345\r\n",
+] as $label => $invalidKey) {
+    putenv('MONETIZZE_CONSUMER_KEY=' . $invalidKey);
+    $calls = 0;
+    try {
+        (new MonetizzeIntegration(static function () use (&$calls): array {
+            $calls++;
+            return ['status' => 200, 'body' => '{"TOKEN":"unexpected"}'];
+        }))->checkConnection();
+        throw new RuntimeException('Aceitou chave insegura: ' . $label);
+    } catch (RuntimeException $e) {
+        assertMonetizze($e->getMessage() === 'MONETIZZE_CONSUMER_KEY inválida.', 'rejeita chave ' . $label);
+        assertMonetizze($calls === 0, 'não envia chave inválida: ' . $label);
+    }
+}
+putenv('MONETIZZE_CONSUMER_KEY=test-consumer-key-12345');
+assertMonetizze((new MonetizzeIntegration(static fn () => [
+    'status' => 200,
+    'body' => '{"TOKEN":"ABC-def_123+/="}',
+]))->checkConnection(), 'token ASCII visível legítimo permanece válido');
+
 echo "Monetizze: verificação de autenticação simulada aprovada.\n";
