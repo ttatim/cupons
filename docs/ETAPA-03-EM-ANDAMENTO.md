@@ -284,3 +284,10 @@
 - O `TOKEN` devolvido por `GET /2.1/token` deve conter apenas caracteres ASCII visíveis, sem espaços, NUL, DEL, tabulações ou quebras de linha, com limite de 8.192 bytes. Ele permanece **descartado**, sem gravação em sessão, banco ou logs.
 - Testes com transporte simulado em `tests/test_monetizze_integration.php` cobrem chaves inválidas sem envio HTTP e tokens inválidos; não foram utilizadas credenciais reais.
 - Esta alteração **não homologa a autenticação upstream**, não habilita conciliação financeira nem modifica schema/migrações. O requisito 3 continua parcial.
+
+## Complemento: minimização dos produtos retornados pela Kiwify (25/10/2026)
+
+- A consulta `KiwifyIntegration::listProducts()` passa a repassar ao painel e ao staging apenas `id`, `name`, `status` e `currency`, descartando quaisquer campos adicionais do produto retornados pela API (por exemplo, dados de compradores, URLs, segredos ou metadados não previstos).
+- Entradas que não sejam objetos de produto ou contenham campos com tipos incompatíveis não são convertidas em strings; recebem campos nulos para exibição segura e rejeição pelo validador existente de staging. A quantidade de registros é preservada para contabilizar rejeições.
+- Testes com payloads sintéticos foram adicionados em `tests/test_kiwify_integration.php`. Nenhum dado real, credencial, migração ou publicação automática foi introduzido.
+- **Limitação:** a alteração minimiza dados dentro do adaptador; não representa homologação de credenciais reais da Kiwify nem autoriza conciliação financeira. O item 3 permanece parcial.
