@@ -73,9 +73,21 @@ final class KiwifyIntegration
                 'currency' => is_string($currency) ? $currency : null,
             ];
         }
+        // Metadados de paginação também são entrada externa. Não repassar
+        // campos inesperados, tokens ou objetos ao painel administrativo.
+        $pagination = [];
+        $sourcePagination = $response['pagination'] ?? null;
+        if (is_array($sourcePagination) && !array_is_list($sourcePagination)) {
+            foreach (['page_number' => 1000, 'page_size' => 50] as $field => $max) {
+                $value = $sourcePagination[$field] ?? null;
+                if (is_int($value) && $value >= 1 && $value <= $max) {
+                    $pagination[$field] = $value;
+                }
+            }
+        }
         return [
             'data' => $products,
-            'pagination' => is_array($response['pagination'] ?? null) ? $response['pagination'] : [],
+            'pagination' => $pagination,
         ];
     }
 
@@ -128,7 +140,13 @@ final class KiwifyIntegration
         if ($status < 200 || $status >= 300) {
             throw new RuntimeException('Kiwify retornou HTTP ' . $status . '. Confira permissões, credenciais e limites de API.');
         }
-        $decoded = json_decode((string) ($result['body'] ?? ''), true);
+        // Aplicar o mesmo limite de resposta ao transporte simulado e ao real.
+        // Nunca incluir o payload remoto nas mensagens de erro.
+        $responseBody = $result['body'] ?? null;
+        if (!is_string($responseBody) || strlen($responseBody) > 1048576) {
+            throw new RuntimeException('Resposta Kiwify inválida ou acima do limite permitido.');
+        }
+        $decoded = json_decode($responseBody, true);
         if (!is_array($decoded) || json_last_error() !== JSON_ERROR_NONE) {
             throw new RuntimeException('Kiwify retornou JSON inválido.');
         }
