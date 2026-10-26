@@ -52,8 +52,29 @@ final class KiwifyIntegration
         if (count($response['data']) > $pageSize) {
             throw new RuntimeException('Kiwify retornou mais produtos que o limite solicitado.');
         }
+        // A API pode devolver campos adicionais (inclusive dados pessoais ou
+        // URLs). Encaminhar ao painel/staging somente os quatro campos de
+        // catálogo necessários. Não transformar arrays/objetos em "Array" via
+        // cast: registros inválidos seguem para rejeição segura no staging.
+        $products = [];
+        foreach ($response['data'] as $product) {
+            if (!is_array($product) || array_is_list($product)) {
+                $products[] = ['id' => null, 'name' => null, 'status' => null, 'currency' => null];
+                continue;
+            }
+            $id = $product['id'] ?? null;
+            $name = $product['name'] ?? null;
+            $status = $product['status'] ?? null;
+            $currency = $product['currency'] ?? null;
+            $products[] = [
+                'id' => is_string($id) || is_int($id) ? $id : null,
+                'name' => is_string($name) ? $name : null,
+                'status' => is_string($status) ? $status : null,
+                'currency' => is_string($currency) ? $currency : null,
+            ];
+        }
         return [
-            'data' => $response['data'],
+            'data' => $products,
             'pagination' => is_array($response['pagination'] ?? null) ? $response['pagination'] : [],
         ];
     }
