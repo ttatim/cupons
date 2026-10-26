@@ -1,0 +1,65 @@
+name: Clean installation and release smoke
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  clean-install:
+    name: Clean MySQL 8 / PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4']
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testpass
+          MYSQL_DATABASE: cupons_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -ptestpass"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      APP_ENV: testing
+      DB_HOST: 127.0.0.1
+      DB_NAME: cupons_test
+      DB_USER: root
+      DB_PASS: testpass
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, dom, fileinfo, gd, json, mbstring, openssl, pdo_mysql
+          coverage: none
+      - name: PHP runtime and installer syntax
+        run: |
+          php scripts/check_runtime.php
+          php -l scripts/install_clean.php
+      - name: Install ALL schema migrations on empty database
+        env:
+          INSTALL_CLEAN_CONFIRM: EMPTY_DATABASE_ONLY
+        run: php scripts/install_clean.php
+      - name: Reject a second install without changing the database
+        env:
+          INSTALL_CLEAN_CONFIRM: EMPTY_DATABASE_ONLY
+        shell: bash
+        run: |
+          if php scripts/install_clean.php; then
+            echo "ERRO: instalador aceitou banco já inicializado" >&2
+            exit 1
+          fi
+      - name: Storefront smoke with synthetic test data only
+        run: php tests/test_clean_install.php
+      - name: Provision synthetic administrator
+        env:
+          ADMIN_USERNAME: admin_ci
+          ADMIN_EMAIL: ci@example.com
+          ADMIN_PASSWORD: CI-testing-only-password-12345
+        run: php scripts/create_admin.php
