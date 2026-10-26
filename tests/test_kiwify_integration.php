@@ -146,4 +146,42 @@ try {
 }
 checkKiwify($oversizedCalls === 2, 'limite rejeitado após uma consulta de produtos');
 
+// A resposta da API pode incluir campos que não pertencem ao catálogo público.
+// Nenhum dado desconhecido (comprador, token, CPF, checkout) deve sair do adaptador.
+$minimizationCalls = 0;
+$minimizationTransport = static function () use (&$minimizationCalls): array {
+    $minimizationCalls++;
+    if ($minimizationCalls === 1) {
+        return ['status' => 200, 'body' => '{"access_token":"test-token","expires_in":300}'];
+    }
+    return ['status' => 200, 'body' => json_encode([
+        'data' => [
+            [
+                'id' => 'p-safe', 'name' => 'Produto de teste',
+                'status' => 'active', 'currency' => 'BRL',
+                'buyer' => ['email' => 'synthetic@example.invalid', 'cpf' => '00000000000'],
+                'secret' => 'DO-NOT-FORWARD', 'checkout_url' => 'https://example.invalid/private',
+            ],
+            ['id' => ['unexpected'], 'name' => ['nested'], 'status' => ['bad'], 'currency' => ['bad']],
+            'unexpected-scalar',
+        ],
+        'pagination' => ['page_number' => 1, 'page_size' => 10],
+    ], JSON_THROW_ON_ERROR)];
+};
+$minimized = (new KiwifyIntegration(Closure::fromCallable($minimizationTransport)))->listProducts(1, 10);
+checkKiwify($minimizationCalls === 2, 'consulta minimizada faz somente OAuth e listagem');
+checkKiwify(count($minimized['data']) === 3, 'preserva quantidade para rejeição no staging');
+checkKiwify($minimized['data'][0] === [
+    'id' => 'p-safe', 'name' => 'Produto de teste',
+    'status' => 'active', 'currency' => 'BRL',
+], 'retorna somente quatro campos de catálogo');
+checkKiwify($minimized['data'][1] === [
+    'id' => null, 'name' => null, 'status' => null, 'currency' => null,
+], 'não converte arrays malformados em strings');
+checkKiwify($minimized['data'][2] === [
+    'id' => null, 'name' => null, 'status' => null, 'currency' => null,
+], 'não repassa registros escalares');
+checkKiwify(!str_contains(json_encode($minimized, JSON_THROW_ON_ERROR), 'DO-NOT-FORWARD'), 'descarta segredo inesperado');
+checkKiwify(!str_contains(json_encode($minimized, JSON_THROW_ON_ERROR), 'synthetic@example.invalid'), 'descarta dados de comprador');
+
 echo "Kiwify: testes simulados aprovados.\n";
