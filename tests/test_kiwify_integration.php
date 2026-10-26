@@ -184,4 +184,42 @@ checkKiwify($minimized['data'][2] === [
 checkKiwify(!str_contains(json_encode($minimized, JSON_THROW_ON_ERROR), 'DO-NOT-FORWARD'), 'descarta segredo inesperado');
 checkKiwify(!str_contains(json_encode($minimized, JSON_THROW_ON_ERROR), 'synthetic@example.invalid'), 'descarta dados de comprador');
 
+// Metadados de paginação são minimizados: ignorar tokens e dados inesperados.
+$paginationCalls = 0;
+$paginationTransport = static function () use (&$paginationCalls): array {
+    $paginationCalls++;
+    if ($paginationCalls === 1) {
+        return ['status' => 200, 'body' => '{"access_token":"test-token"}'];
+    }
+    return ['status' => 200, 'body' => json_encode([
+        'data' => [],
+        'pagination' => [
+            'page_number' => 1, 'page_size' => 10,
+            'next_page_token' => 'DO-NOT-FORWARD',
+            'buyer_email' => 'synthetic@example.invalid',
+            'total_pages' => ['unexpected' => 'nested'],
+        ],
+    ], JSON_THROW_ON_ERROR)];
+};
+$paginationResult = (new KiwifyIntegration(Closure::fromCallable($paginationTransport)))->listProducts();
+checkKiwify($paginationCalls === 2, 'consulta de paginação executada');
+checkKiwify($paginationResult['pagination'] === ['page_number' => 1, 'page_size' => 10], 'somente paginação permitida');
+checkKiwify(!str_contains(json_encode($paginationResult, JSON_THROW_ON_ERROR), 'DO-NOT-FORWARD'), 'não repassa token em paginação');
+
+// O limite de 1 MiB deve valer inclusive para o transporte injetado nos testes.
+$oversizedBodyCalls = 0;
+$oversizedBodyTransport = static function () use (&$oversizedBodyCalls): array {
+    $oversizedBodyCalls++;
+    return $oversizedBodyCalls === 1
+        ? ['status' => 200, 'body' => '{"access_token":"test-token"}']
+        : ['status' => 200, 'body' => str_repeat('x', 1048577)];
+};
+try {
+    (new KiwifyIntegration(Closure::fromCallable($oversizedBodyTransport)))->listProducts();
+    throw new RuntimeException('Aceitou resposta Kiwify acima de 1 MiB');
+} catch (RuntimeException $e) {
+    checkKiwify($e->getMessage() === 'Resposta Kiwify inválida ou acima do limite permitido.', 'rejeita corpo excessivo');
+}
+checkKiwify($oversizedBodyCalls === 2, 'limite de resposta verificado após OAuth');
+
 echo "Kiwify: testes simulados aprovados.\n";
